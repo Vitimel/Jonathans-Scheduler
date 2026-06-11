@@ -1,0 +1,1984 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jonathan's Scheduler Prototype</title>
+  <style>
+    :root {
+      --bg: #f7f8f6;
+      --panel: #ffffff;
+      --ink: #202322;
+      --muted: #67706b;
+      --line: #dfe4df;
+      --line-strong: #c5cec6;
+      --accent: #9f2f2f;
+      --accent-dark: #782323;
+      --green: #23785a;
+      --green-soft: #e8f4ee;
+      --amber: #a96b00;
+      --amber-soft: #fff4dc;
+      --red-soft: #fbe8e7;
+      --blue-soft: #e8f0fb;
+      --shadow: 0 18px 45px rgba(28, 35, 31, 0.10);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(159, 47, 47, 0.06), rgba(247, 248, 246, 0) 230px),
+        var(--bg);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: 140ms ease;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: center;
+      padding: 16px 22px;
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .period-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .period-controls select,
+    .period-controls input {
+      width: auto;
+      min-height: 36px;
+      font-size: 13px;
+    }
+
+    .month-jump {
+      min-width: 36px;
+      min-height: 36px;
+      padding: 0 9px;
+    }
+
+    .status-pill {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 12px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .status-pill strong { color: var(--ink); }
+
+    .btn {
+      min-height: 36px;
+      padding: 0 12px;
+      background: var(--panel);
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent-dark); }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn.primary:hover { background: var(--accent-dark); color: #fff; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 300px;
+      min-height: 0;
+    }
+
+    .sidebar, .details {
+      border-right: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      padding: 16px;
+      min-height: calc(100vh - 69px);
+    }
+
+    .details {
+      border-right: 0;
+      border-left: 1px solid var(--line);
+    }
+
+    .sidebar h2, .details h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    input, select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(159, 47, 47, 0.12);
+    }
+
+    .role-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .mode-tab {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .mode-tab.active {
+      color: #fff;
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .chip-toggle {
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .chip-toggle.active {
+      color: var(--accent-dark);
+      background: var(--red-soft);
+      border-color: rgba(159, 47, 47, 0.28);
+    }
+
+    .employee-list {
+      display: grid;
+      gap: 8px;
+      max-height: 52vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .employee-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 9px;
+      background: #fff;
+    }
+
+    .employee-row.used {
+      background: #f0f2f0;
+      color: #879088;
+    }
+
+    .employee-row.requested-off {
+      background: var(--amber-soft);
+      border-color: rgba(169, 107, 0, 0.30);
+    }
+
+    .employee-row button {
+      width: 30px;
+      height: 30px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-weight: 900;
+      border: 1px solid rgba(35, 120, 90, 0.20);
+    }
+
+    .employee-row .edit-person {
+      width: auto;
+      min-width: 42px;
+      padding: 0 8px;
+      background: #fff;
+      color: var(--muted);
+      border-color: var(--line-strong);
+      font-size: 11px;
+    }
+
+    .employee-row .edit-person:hover {
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      background: #fffafa;
+    }
+
+    .employee-row.used button {
+      background: #e3e6e3;
+      color: #737b75;
+    }
+
+    .employee-main {
+      min-width: 0;
+    }
+
+    .employee-name {
+      font-weight: 850;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .employee-meta {
+      display: flex;
+      gap: 7px;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--green);
+      margin-right: 5px;
+    }
+
+    .used .dot { background: var(--amber); }
+    .requested-off .dot { background: var(--amber); }
+
+    .request-off-row {
+      grid-template-columns: 1fr auto;
+    }
+
+    .request-off-row button {
+      width: auto;
+      min-width: 72px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--muted);
+      border-color: var(--line-strong);
+      font-size: 11px;
+    }
+
+    .request-off-row.requested-off button {
+      color: #694100;
+      background: #ffe7ad;
+      border-color: rgba(169, 107, 0, 0.35);
+    }
+
+    .add-person {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+    }
+
+    .workspace {
+      min-width: 0;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .week-tabs {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .day-tabs {
+      display: flex;
+      gap: 6px;
+      overflow: auto;
+      padding-bottom: 2px;
+    }
+
+    .day-tab {
+      min-width: 76px;
+      padding: 9px 10px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-weight: 850;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .day-tab.active {
+      color: #fff;
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .day-tab span {
+      display: block;
+      margin-top: 3px;
+      font-weight: 650;
+      opacity: 0.72;
+    }
+
+    .boards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(188px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .board {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .board-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfb;
+    }
+
+    .board-tools {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .board-title {
+      min-width: 0;
+    }
+
+    .board-title h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .board-title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .count-badge {
+      border-radius: 999px;
+      padding: 5px 8px;
+      color: var(--green);
+      background: var(--green-soft);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line-strong);
+      background: #fff;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .icon-btn:hover {
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      background: #fffafa;
+    }
+
+    .slots {
+      display: grid;
+    }
+
+    .slot {
+      display: grid;
+      grid-template-columns: 66px 1fr;
+      min-height: 58px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .slot:last-child { border-bottom: 0; }
+
+    .slot-time {
+      padding: 10px 8px;
+      border-right: 1px solid var(--line);
+      background: #fbfcfb;
+    }
+
+    .slot-time strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .slot-time span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .slot-body {
+      display: grid;
+      gap: 8px;
+      padding: 9px;
+      align-content: center;
+    }
+
+    .slot-button {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 9px;
+      background: #fff;
+      border: 1px dashed var(--line-strong);
+      color: var(--muted);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .slot-button:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+      background: #fffafa;
+    }
+
+    .assignment {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      border: 1px solid rgba(35, 120, 90, 0.24);
+      background: var(--green-soft);
+      color: #163f31;
+      padding: 7px 8px;
+      border-radius: 7px;
+      text-align: left;
+    }
+
+    .assignment strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .assignment span {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #3d6758;
+    }
+
+    .assignment .remove {
+      width: 26px;
+      height: 26px;
+      background: rgba(255,255,255,0.75);
+      color: #315348;
+      border: 1px solid rgba(35, 120, 90, 0.20);
+      font-weight: 900;
+    }
+
+    .slot-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: -4px;
+    }
+
+    .delete-slot {
+      min-height: 24px;
+      padding: 0 7px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .delete-slot:hover {
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      background: var(--red-soft);
+    }
+
+    .difficulty {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .star {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: #d7ddd8;
+      display: inline-block;
+    }
+
+    .star.on { background: var(--amber); }
+
+    .detail-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .detail-card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .detail-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+    }
+
+    .detail-line:first-of-type { border-top: 0; }
+    .detail-line span { color: var(--muted); }
+    .detail-line strong { text-align: right; }
+
+    .warning {
+      border: 1px solid rgba(169, 107, 0, 0.25);
+      background: var(--amber-soft);
+      color: #694100;
+      border-radius: var(--radius);
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(20, 24, 22, 0.42);
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal {
+      width: min(480px, 100%);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 28px 80px rgba(20, 24, 22, 0.24);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .modal-body {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      max-height: 330px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 1fr 74px;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px;
+      background: #fbfcfb;
+    }
+
+    .role-card {
+      display: grid;
+      gap: 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px;
+      background: #fbfcfb;
+    }
+
+    .role-card.enabled {
+      background: #fff;
+      border-color: rgba(35, 120, 90, 0.26);
+    }
+
+    .role-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .role-bubble {
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .role-bubble.enabled {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: rgba(35, 120, 90, 0.28);
+    }
+
+    .role-controls {
+      display: grid;
+      grid-template-columns: 1fr 90px;
+      gap: 8px;
+    }
+
+    .role-controls[hidden] {
+      display: none;
+    }
+
+    .score-row span {
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .score-row select {
+      min-height: 32px;
+      padding: 4px 7px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .read-only {
+      display: none;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .read-only h2 {
+      margin: 0 0 12px;
+    }
+
+    .print-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .print-day {
+      border: 1px solid #bfc8c0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .print-day h3 {
+      margin: 0;
+      padding: 8px;
+      background: #202322;
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .print-day table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .print-day th, .print-day td {
+      border-top: 1px solid #e1e5e1;
+      padding: 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: 280px minmax(0, 1fr);
+      }
+      .details {
+        grid-column: 1 / -1;
+        min-height: auto;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+      .boards { grid-template-columns: repeat(2, minmax(230px, 1fr)); }
+    }
+
+    @media (max-width: 780px) {
+      .topbar { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .boards { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .topbar, .sidebar, .workspace, .details { display: none; }
+      .shell { display: block; }
+      .read-only { display: block; }
+      .app { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Jonathan's Scheduler</h1>
+        <p id="periodSummary">Prototype seeded from the June 1-14 workbook. Assign once per day across Manager, Bar, Host/Foodrunner, and Server/Cocktail.</p>
+      </div>
+      <div class="actions">
+        <div class="period-controls">
+          <select id="periodSelect" title="Schedule period"></select>
+          <button class="btn month-jump" id="prevMonthBtn" type="button" title="Move new period date back one month">‹</button>
+          <input id="newPeriodStart" type="date" title="New period start" />
+          <button class="btn month-jump" id="nextMonthBtn" type="button" title="Move new period date forward one month">›</button>
+          <select id="newPeriodLength" title="New period length">
+            <option value="7">1 week</option>
+            <option value="14" selected>2 weeks</option>
+          </select>
+          <button class="btn" id="newPeriodBtn" type="button">New Period</button>
+        </div>
+        <div class="status-pill"><span class="dot"></span><strong id="filledCount">0</strong> filled</div>
+        <div class="status-pill"><span class="dot" style="background: var(--amber)"></span><strong id="blockedCount">0</strong> day locks</div>
+        <button class="btn" id="clearDayBtn">Clear Day</button>
+        <button class="btn" id="printBtn">Print</button>
+        <button class="btn primary" id="copyLinkBtn">Copy Read-Only Link</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="peopleModeBtn" type="button">People</button>
+          <button class="mode-tab" id="requestModeBtn" type="button">Request Off</button>
+        </div>
+        <h2 id="sidebarTitle">People Picker</h2>
+        <div class="field">
+          <label for="selectedDay">Selected day</label>
+          <select id="selectedDay"></select>
+        </div>
+        <div class="field">
+          <label for="search">Search employees</label>
+          <input id="search" type="search" placeholder="Name, role, or score" />
+        </div>
+        <div class="role-filters" id="roleFilters"></div>
+        <div class="employee-list" id="employeeList"></div>
+
+        <form class="add-person" id="addPersonForm">
+          <h2>Add Person</h2>
+          <input id="newName" placeholder="Employee name" />
+          <select id="newRole">
+            <option>Server</option>
+            <option>Host</option>
+            <option>Foodrunner</option>
+            <option>Bar</option>
+            <option>Manager</option>
+          </select>
+          <button class="btn primary" type="submit">Add Employee</button>
+        </form>
+      </aside>
+
+      <section class="workspace">
+        <div class="week-tabs">
+          <div class="day-tabs" id="dayTabs"></div>
+          <button class="btn" id="autoFillBtn">Auto-fill visible blanks</button>
+        </div>
+        <div class="boards" id="boards"></div>
+      </section>
+
+      <aside class="details">
+        <h2>Slot Details</h2>
+        <div id="slotDetails"></div>
+      </aside>
+    </main>
+
+    <section class="read-only" id="printView"></section>
+  </div>
+
+  <div class="modal-backdrop" id="slotModal">
+    <form class="modal" id="slotForm">
+      <div class="modal-head">
+        <h2>Add Shift Slot</h2>
+        <button class="icon-btn" type="button" id="closeSlotModal" aria-label="Close">x</button>
+      </div>
+      <div class="modal-body">
+        <input id="slotBoard" type="hidden" />
+        <div class="field">
+          <label for="slotCode">Shift code</label>
+          <input id="slotCode" placeholder="Example: 10AM C, 4(9), 2CKT(2)" required />
+        </div>
+        <div class="modal-grid">
+          <div class="field">
+            <label for="slotRole">Role</label>
+            <select id="slotRole"></select>
+          </div>
+          <div class="field">
+            <label for="slotMin">Minimum score</label>
+            <select id="slotMin">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="slotNote">Rule note</label>
+          <input id="slotNote" placeholder="Example: Extra school-out 10AM server" />
+        </div>
+        <div class="empty">If you removed a normal shift like MID or 10AM A, add the same shift code back on that day to restore it.</div>
+        <div class="modal-actions">
+          <button class="btn" type="button" id="cancelSlotBtn">Cancel</button>
+          <button class="btn primary" type="submit">Add Shift</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-backdrop" id="personModal">
+    <form class="modal" id="personForm">
+      <div class="modal-head">
+        <h2>Edit Person</h2>
+        <button class="icon-btn" type="button" id="closePersonModal" aria-label="Close">x</button>
+      </div>
+      <div class="modal-body">
+        <input id="editPersonId" type="hidden" />
+        <div class="field">
+          <label for="editPersonName">Name</label>
+          <input id="editPersonName" required />
+        </div>
+        <div class="field">
+          <label for="editMainRole">Priority / main role</label>
+          <select id="editMainRole"></select>
+        </div>
+        <div class="field">
+          <label>Role bubbles</label>
+          <div class="score-grid" id="scoreGrid"></div>
+        </div>
+        <div class="warning">Click a role bubble if they can work it. Use type controls when the scheduler should pull them there; skill controls how strong they are there.</div>
+        <div class="modal-actions">
+          <button class="btn" type="button" id="deletePersonBtn">Remove Person</button>
+          <button class="btn" type="button" id="cancelPersonBtn">Cancel</button>
+          <button class="btn primary" type="submit">Save Person</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const roles = ['Manager', 'Bar', 'Host', 'Foodrunner', 'Server', 'Cocktail', 'Board', 'Expo', 'To-go', 'Floor'];
+    const useTypes = ['Preferred', 'Normal', 'Backup', 'Training'];
+    const useRank = { Preferred: 4, Normal: 3, Backup: 2, Training: 1 };
+
+    function parseLocalDate(value) {
+      const [year, month, day] = value.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function toDateId(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function addDays(date, count) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + count);
+      return next;
+    }
+
+    function formatDayLabel(date) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    }
+
+    function formatShortDate(date) {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function buildPeriod(startDate, length = 14) {
+      const start = parseLocalDate(startDate);
+      const end = addDays(start, Number(length) - 1);
+      return {
+        id: `period-${startDate}-${length}`,
+        startDate,
+        length: Number(length),
+        label: `${formatShortDate(start)} - ${formatShortDate(end)}`
+      };
+    }
+
+    function buildDays(period) {
+      const start = parseLocalDate(period.startDate);
+      return Array.from({ length: Number(period.length) }, (_, index) => {
+        const date = addDays(start, index);
+        return { id: toDateId(date), label: formatDayLabel(date), date: formatShortDate(date) };
+      });
+    }
+
+    const seedEmployees = [
+      ['GUNNAR','Manager',5,4,2,2,4,3,2,2,3,4], ['SUSAN','Manager',5,4,2,2,4,3,2,2,3,4],
+      ['EMMA','Manager',5,3,2,2,4,3,2,2,3,4], ['JASON','Manager',5,4,2,2,5,4,2,2,3,4],
+      ['TIM','Manager',5,4,2,2,5,4,2,2,3,4], ['PAIGE','Manager',4,3,2,2,4,3,2,2,3,4],
+      ['DANE','Bar',1,4,1,1,3,3,1,1,2,3], ['MICHA','Bar',1,4,1,1,4,3,1,1,2,3],
+      ['MACEY','Bar',1,4,1,1,4,3,1,1,2,3], ['TAYLOR D.','Bar',1,4,1,1,4,4,1,1,2,3],
+      ['SEAN','Bar',1,4,1,1,4,3,1,1,2,3], ['KELSEY','Bar',1,4,1,1,4,3,1,1,2,3],
+      ['RENEE','Bar',1,4,1,1,3,3,1,1,2,3], ['SARA','Bar',1,4,1,1,4,3,1,1,2,3],
+      ['JOCELYN','Server',1,3,2,2,4,3,2,2,2,3], ['ELAYJA','Server',1,3,2,2,3,3,2,2,2,3],
+      ['ALYSSA','Server',1,1,1,1,4,3,1,1,1,2], ['ALEX','Server',1,1,1,1,3,3,1,1,1,2],
+      ['ANNA','Server',1,1,1,1,4,4,1,1,1,2], ['ALIYAH','Server',1,1,1,1,4,3,1,1,1,2],
+      ['ANYLA','Server',1,1,1,1,3,3,1,1,1,2], ['AUSTIN','Server',1,1,1,1,3,2,1,1,1,2],
+      ['AUBRY','Server',1,1,1,1,4,4,1,1,1,2], ['BELLA','Server',1,1,1,1,4,4,1,1,1,2],
+      ['DOMINICK','Server',1,1,1,1,2,2,1,1,1,2], ['ETHAN K.','Server',1,1,1,1,3,2,1,1,1,2],
+      ['ETHAN W.','Server',1,1,1,1,4,3,1,1,1,2], ['HALEY','Server',1,1,1,1,4,4,1,1,1,2],
+      ['JADA','Server',1,1,1,1,4,4,1,1,1,2], ['JACKSON','Server',1,1,1,1,4,4,1,1,1,2],
+      ['JAXON','Server',1,1,1,1,4,4,1,1,1,2], ['JESSE','Server',1,1,1,1,4,4,1,1,1,2],
+      ['KADEN','Server',1,1,1,1,3,2,1,1,1,2], ['KAYLA','Server',1,1,1,1,3,3,1,1,1,2],
+      ['LUCAS','Server',1,1,1,1,3,2,1,1,1,2], ['MADISON','Server',1,1,1,1,3,3,1,1,1,2],
+      ['MARISA','Server',1,1,1,1,3,3,1,1,1,2], ['RACHEL','Server',1,1,3,3,3,2,3,3,3,3],
+      ['RASHID','Server',1,1,1,1,4,4,1,1,1,2], ['RONNY','Server',1,1,1,1,3,3,1,1,1,2],
+      ['SHANNON','Server',1,1,1,1,4,3,1,1,1,2], ['TONIYA','Server',1,1,1,1,3,3,1,1,1,2],
+      ['ANN','Host',1,1,4,3,1,1,2,2,2,3], ['ALEXA','Host',1,1,4,4,2,1,3,3,4,3],
+      ['AVA','Host',1,1,4,3,1,1,3,3,2,3], ['BAILYNN','Host',1,1,4,4,1,1,3,3,2,3],
+      ['CAITLYN','Host',1,1,4,3,1,1,3,2,2,3], ['COURTNEY','Host',1,1,3,3,1,1,4,3,2,3],
+      ['CHRIS','Host',1,1,4,4,2,1,3,3,2,3], ['CHLOE','Host',1,1,3,2,1,1,2,2,2,2],
+      ['ELIJAH','Host',1,1,3,3,1,1,2,2,2,2], ['GABE','Foodrunner',1,1,2,4,1,1,2,3,2,3],
+      ['GABBY','Foodrunner',1,1,4,4,2,1,4,4,4,3], ['HAILEY C.','Host',1,1,4,3,1,1,3,2,2,3],
+      ['IZAYAH','Host',1,1,3,2,1,1,2,2,2,2], ['LAUREN','Host',1,1,3,2,1,1,2,2,2,2],
+      ['LILY','Host',1,1,3,2,1,1,2,2,2,2], ['MARIAM','Expo',1,1,3,3,1,1,3,4,2,3],
+      ['MAX','Foodrunner',1,1,2,4,1,1,2,4,2,3], ['PEYTON R.','Host',1,1,4,4,1,1,3,2,2,3],
+      ['PEYTON P.','Foodrunner',1,1,4,4,1,1,3,2,2,3], ['SAVANNA','Board',1,1,3,3,1,1,4,3,2,3],
+      ['SOPHIA','Foodrunner',1,1,4,4,1,1,3,2,2,3], ['SYDNEY','To-go',1,1,3,3,1,1,2,2,4,3],
+      ['AINSLEY','Host',1,1,3,2,1,1,2,2,2,2], ['ALSION','Server',1,1,1,1,2,2,1,1,1,2]
+    ];
+
+    function useTypeFromScore(score) {
+      if (score >= 5) return 'Preferred';
+      if (score === 4) return 'Normal';
+      if (score === 3) return 'Backup';
+      return 'Training';
+    }
+
+    function roleSettingsFromScores(scores, mainRole) {
+      return Object.fromEntries(roles.map(role => {
+        const skill = Number(scores[role] || 1);
+        const enabled = skill > 1 || role === mainRole;
+        return [role, { enabled, useType: useTypeFromScore(skill), skill: Math.max(1, Math.min(5, skill)) }];
+      }));
+    }
+
+    const employees = seedEmployees.map((row, index) => {
+      const scores = {
+        Manager: row[2], Bar: row[3], Host: row[4], Foodrunner: row[5], Server: row[6],
+        Cocktail: row[7], Board: row[8], Expo: row[9], 'To-go': row[10], Floor: row[11]
+      };
+      return {
+        id: `emp-${index + 1}`,
+        name: row[0],
+        mainRole: row[1],
+        scores,
+        roleSettings: roleSettingsFromScores(scores, row[1])
+      };
+    });
+
+    const templates = {
+      Manager: [
+        ['AM', 'AM Manager', 'Manager', 5, 'Set manager coverage'],
+        ['MID', 'Mid Manager', 'Manager', 3, 'Often blank unless busy'],
+        ['PM', 'PM Manager', 'Manager', 5, 'Closing manager coverage']
+      ],
+      Bar: [
+        ['10ER', 'Early Rush', 'Bar', 3, 'Early bar rush support'],
+        ['AM', 'AM Bar', 'Bar', 4, 'Set bar shift'],
+        ['MID', 'Mid Bar', 'Bar', 3, 'Mid coverage'],
+        ['2RUSH', '2 Rush', 'Bar', 4, 'Busy day cocktail/bar support'],
+        ['3LR', 'Late Rush', 'Bar', 4, 'Late rush'],
+        ['4LR', '4 Late Rush', 'Bar', 4, 'Late rush'],
+        ['5CL', '5 Close', 'Bar', 5, 'Bar close'],
+        ['PM', 'PM Bar', 'Bar', 5, 'PM bar close']
+      ],
+      'Host/Foodrunner': [
+        ['11BRD', '11 Board', 'Board', 4, 'Runs the board'],
+        ['11HST', '11 Host', 'Host', 3, 'AM host'],
+        ['11FDR', '11 Foodrunner', 'Foodrunner', 3, 'AM foodrunner'],
+        ['4HST', '4 Host', 'Host', 3, 'PM host'],
+        ['4FDR', '4 Foodrunner', 'Foodrunner', 3, 'PM foodrunner'],
+        ['4BRD', '4 Board', 'Board', 4, 'PM board'],
+        ['4EXPO', '4 Expo', 'Expo', 4, 'Window/expo'],
+        ['4TOGO', '4 To-go', 'To-go', 3, 'To-go coverage'],
+        ['5HST', '5 Host', 'Host', 3, 'Later host'],
+        ['5FDR', '5 Foodrunner', 'Foodrunner', 3, 'Later foodrunner']
+      ],
+      'Server/Cocktail': []
+    };
+
+    const serverByDay = {
+      Mon: ['10AM A','10AM B','10T','4(1)','4(2)','4(3)','5(4)','5(5)','5(6)','5CL','10CKT(1)','3CKT(2)','4CKTCL'],
+      Tue: ['10AM A','10AM B','10AM C','10T','4(1)','4(2)','4(3)','5(4)','5(5)','5(6)','5CL','10CKT(1)','3CKT(2)','4CKTCL'],
+      Wed: ['10AM A','10AM B','10T','4(1)','4(2)','4(3)','5(4)','5(5)','5(6)','5CL','10CKT(1)','3CKT(2)','4CKTCL'],
+      Thu: ['10AM A','10AM B','10T','4(1)','4(2)','4(3)','5(4)','5(5)','5(6)','5CL','10CKT(1)','3CKT(2)','4CKTCL'],
+      Fri: ['10AM A','10AM B','10AM C','10T','11AM','4(1)','4(2)','4(3)','4(4)','4(5)','4(6)','4(7)','4(8)','4CL','10CKT(1)','2CKT(2)','3CKT(3)','4CKTCL'],
+      Sat: ['10AM A','10AM B','10AM C','10AM D','10AM E','10AM F','10T','11AM','4(1)','4(2)','4(3)','4(4)','4(5)','4(6)','4(7)','4(8)','4CL','10CKTCL','11CKT(1)','2CKT(2)','3CKT(3)','4CKTCL'],
+      Sun: ['10AM A','10AM B','10AM C','10AM D','10T A','10T B','11AM','4(1)','4(2)','4(3)','4(4)','4(5)','4CL','10CKTCL','11CKT(2)','4CKTCL']
+    };
+
+    for (const dayName of Object.keys(serverByDay)) {
+      templates['Server/Cocktail'].push(...serverByDay[dayName].map(code => {
+        const isCocktail = code.includes('CKT');
+        const isClose = code.includes('CL');
+        const isParty = /\(7\)|\(8\)|\(6\)/.test(code);
+        const min = isClose ? 5 : isParty || isCocktail ? 4 : 3;
+        return [code, code, isCocktail ? 'Cocktail' : 'Server', min, isClose ? 'Closer needs a strong person' : isParty ? 'Party/heavier section, rotate fairly' : 'Dining room section'];
+      }));
+    }
+
+    const priorityByBoard = {
+      Manager: 'Managers first',
+      Bar: 'Mostly set schedule',
+      'Host/Foodrunner': 'Fill before Server',
+      'Server/Cocktail': 'Fill from remaining available people'
+    };
+
+    const defaultPeriod = buildPeriod('2026-06-01', 14);
+
+    function loadJson(key, fallback) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function scopedLegacyObject(raw, delimiterCount) {
+      const scoped = {};
+      for (const [key, value] of Object.entries(raw || {})) {
+        const parts = key.split('|');
+        scoped[parts.length === delimiterCount ? `${defaultPeriod.id}|${key}` : key] = value;
+      }
+      return scoped;
+    }
+
+    function normalizeEmployee(person) {
+      const scores = person.scores || Object.fromEntries(roles.map(role => [role, role === person.mainRole ? 3 : 1]));
+      const roleSettings = person.roleSettings || roleSettingsFromScores(scores, person.mainRole);
+      return { ...person, scores, roleSettings };
+    }
+
+    function normalizePeriods(periods) {
+      const list = Array.isArray(periods) && periods.length ? periods : [defaultPeriod];
+      return list.map(period => ({
+        id: period.id || `period-${period.startDate}-${period.length || 14}`,
+        startDate: period.startDate || defaultPeriod.startDate,
+        length: Number(period.length || 14),
+        label: period.label || buildPeriod(period.startDate || defaultPeriod.startDate, period.length || 14).label
+      }));
+    }
+
+    const savedPeriods = normalizePeriods(loadJson('jonathansPeriods', [defaultPeriod]));
+    const savedPeriodId = localStorage.getItem('jonathansCurrentPeriodId');
+    let days = buildDays(savedPeriods.find(period => period.id === savedPeriodId) || savedPeriods[0]);
+
+    const state = {
+      periods: savedPeriods,
+      periodId: savedPeriods.some(period => period.id === savedPeriodId) ? savedPeriodId : savedPeriods[0].id,
+      dayId: days[0].id,
+      selectedSlot: null,
+      roleFilter: 'All',
+      sidebarMode: 'people',
+      newPeriodDraftStart: null,
+      newPeriodDraftLength: null,
+      search: '',
+      employees: (loadJson('jonathansEmployees', employees) || employees).map(normalizeEmployee),
+      assignments: scopedLegacyObject(loadJson('jonathansAssignments', {}), 3),
+      customSlots: scopedLegacyObject(loadJson('jonathansCustomSlots', {}), 2),
+      hiddenSlots: scopedLegacyObject(loadJson('jonathansHiddenSlots', {}), 2),
+      requestsOff: scopedLegacyObject(loadJson('jonathansRequestsOff', {}), 2)
+    };
+
+    const boardNames = ['Manager', 'Bar', 'Host/Foodrunner', 'Server/Cocktail'];
+    const byId = id => document.getElementById(id);
+    const save = () => {
+      localStorage.setItem('jonathansPeriods', JSON.stringify(state.periods));
+      localStorage.setItem('jonathansCurrentPeriodId', state.periodId);
+      localStorage.setItem('jonathansEmployees', JSON.stringify(state.employees));
+      localStorage.setItem('jonathansAssignments', JSON.stringify(state.assignments));
+      localStorage.setItem('jonathansCustomSlots', JSON.stringify(state.customSlots));
+      localStorage.setItem('jonathansHiddenSlots', JSON.stringify(state.hiddenSlots));
+      localStorage.setItem('jonathansRequestsOff', JSON.stringify(state.requestsOff));
+    };
+
+    function slotId(board, dayId, code) {
+      return `${state.periodId}|${dayId}|${board}|${code}`;
+    }
+
+    function dayAssignments(dayId = state.dayId) {
+      return Object.entries(state.assignments)
+        .filter(([key, employeeId]) => key.startsWith(`${state.periodId}|${dayId}|`) && employeeId)
+        .map(([key, employeeId]) => {
+          const [, , board, code] = key.split('|');
+          const employee = state.employees.find(person => person.id === employeeId);
+          return { key, board, code, employee };
+        })
+        .filter(item => item.employee);
+    }
+
+    function usedOnDay(employeeId, dayId = state.dayId) {
+      return dayAssignments(dayId).find(item => item.employee.id === employeeId);
+    }
+
+    function isRequestedOff(employeeId, dayId = state.dayId) {
+      return Boolean(state.requestsOff[`${state.periodId}|${dayId}|${employeeId}`]);
+    }
+
+    function toggleRequestOff(employeeId) {
+      const key = `${state.periodId}|${state.dayId}|${employeeId}`;
+      if (state.requestsOff[key]) delete state.requestsOff[key];
+      else state.requestsOff[key] = true;
+      render();
+    }
+
+    function getSlots(board, day) {
+      const base = templates[board] || [];
+      let slots;
+      if (board !== 'Server/Cocktail') {
+        slots = base.map(slot => ({ code: slot[0], label: slot[1], role: slot[2], min: slot[3], note: slot[4], custom: false }));
+      } else {
+        const dayCodes = serverByDay[day.label] || serverByDay.Mon;
+        slots = dayCodes.map(code => {
+        const isCocktail = code.includes('CKT');
+        const isClose = code.includes('CL');
+        const isParty = /\(6\)|\(7\)|\(8\)/.test(code);
+        return {
+          code,
+          label: code,
+          role: isCocktail ? 'Cocktail' : 'Server',
+          min: isClose ? 5 : isParty || isCocktail ? 4 : 3,
+          note: isClose ? 'Closer needs a strong person' : isParty ? 'Party/heavier section, rotate fairly' : 'Dining room section',
+          custom: false
+        };
+      });
+      }
+
+      const custom = state.customSlots[`${state.periodId}|${day.id}|${board}`] || [];
+      const hidden = new Set(state.hiddenSlots[`${state.periodId}|${day.id}|${board}`] || []);
+      return [
+        ...slots.filter(slot => !hidden.has(slot.code)),
+        ...custom.map(slot => ({ ...slot, custom: true }))
+      ];
+    }
+
+    function roleSetting(employee, role) {
+      if (!employee.roleSettings) employee.roleSettings = roleSettingsFromScores(employee.scores || {}, employee.mainRole);
+      return employee.roleSettings[role] || { enabled: false, useType: 'Training', skill: 1 };
+    }
+
+    function roleFit(employee, role) {
+      return roleSetting(employee, role).skill || 1;
+    }
+
+    function canWorkRole(employee, role) {
+      return Boolean(roleSetting(employee, role).enabled);
+    }
+
+    function candidateSortForRole(role) {
+      return (a, b) => {
+        const aSetting = roleSetting(a, role);
+        const bSetting = roleSetting(b, role);
+        return (useRank[bSetting.useType] || 0) - (useRank[aSetting.useType] || 0)
+          || (bSetting.skill || 0) - (aSetting.skill || 0)
+          || a.name.localeCompare(b.name);
+      };
+    }
+
+    function renderStars(score) {
+      return `<span class="difficulty" aria-label="score ${score} of 5">${[1,2,3,4,5].map(n => `<span class="star ${n <= score ? 'on' : ''}"></span>`).join('')}</span>`;
+    }
+
+    function renderDayControls() {
+      byId('selectedDay').innerHTML = days.map(day => `<option value="${day.id}" ${day.id === state.dayId ? 'selected' : ''}>${day.label} ${day.date}</option>`).join('');
+      byId('dayTabs').innerHTML = days.map(day => `
+        <button class="day-tab ${day.id === state.dayId ? 'active' : ''}" data-day="${day.id}">
+          ${day.label}<span>${day.date}</span>
+        </button>
+      `).join('');
+    }
+
+    function currentPeriod() {
+      return state.periods.find(period => period.id === state.periodId) || state.periods[0];
+    }
+
+    function refreshDaysForPeriod() {
+      days = buildDays(currentPeriod());
+      if (!days.some(day => day.id === state.dayId)) state.dayId = days[0].id;
+    }
+
+    function renderPeriodControls() {
+      const period = currentPeriod();
+      byId('periodSelect').innerHTML = state.periods.map(item => `<option value="${item.id}" ${item.id === state.periodId ? 'selected' : ''}>${item.label}</option>`).join('');
+      byId('newPeriodStart').value = state.newPeriodDraftStart || period.startDate;
+      byId('newPeriodLength').value = String(state.newPeriodDraftLength || period.length);
+      byId('periodSummary').textContent = `${period.label} (${period.length === 7 ? '1 week' : '2 weeks'}). Assign once per day across Manager, Bar, Host/Foodrunner, and Server/Cocktail.`;
+    }
+
+    function renderRoleFilters() {
+      const filters = ['All', ...roles];
+      byId('roleFilters').innerHTML = filters.map(role => `
+        <button class="chip-toggle ${state.roleFilter === role ? 'active' : ''}" data-role="${role}" type="button">${role}</button>
+      `).join('');
+      byId('slotRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+      byId('editMainRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+    }
+
+    function renderEmployees() {
+      byId('sidebarTitle').textContent = state.sidebarMode === 'requests' ? 'Request Off' : 'People Picker';
+      byId('addPersonForm').style.display = state.sidebarMode === 'requests' ? 'none' : 'grid';
+      byId('peopleModeBtn').classList.toggle('active', state.sidebarMode === 'people');
+      byId('requestModeBtn').classList.toggle('active', state.sidebarMode === 'requests');
+      const term = state.search.trim().toLowerCase();
+      const selected = getSelectedSlot();
+      const people = state.employees
+        .filter(person => state.roleFilter === 'All' || person.mainRole === state.roleFilter || canWorkRole(person, state.roleFilter))
+        .filter(person => {
+          const roleText = Object.entries(person.roleSettings || {}).map(([role, setting]) => `${role} ${setting.enabled ? 'can' : 'no'} ${setting.useType} ${setting.skill}`).join(' ');
+          const haystack = `${person.name} ${person.mainRole} ${roleText}`.toLowerCase();
+          return !term || haystack.includes(term);
+        })
+        .sort((a, b) => {
+          const role = selected?.role || (state.roleFilter === 'All' ? null : state.roleFilter);
+          return role ? candidateSortForRole(role)(a, b) : a.name.localeCompare(b.name);
+        });
+
+      if (state.sidebarMode === 'requests') {
+        byId('employeeList').innerHTML = people.map(person => {
+          const requested = isRequestedOff(person.id);
+          return `
+            <div class="employee-row request-off-row ${requested ? 'requested-off' : ''}">
+              <div class="employee-main">
+                <div class="employee-name"><span class="dot"></span>${person.name}${requested ? ' *' : ''}</div>
+                <div class="employee-meta">
+                  <span>${person.mainRole}</span>
+                  <span>${requested ? 'Requested off this day' : 'Available / no request off'}</span>
+                </div>
+              </div>
+              <button type="button" data-request-off="${person.id}">${requested ? 'Undo Off' : 'Mark Off'}</button>
+            </div>
+          `;
+        }).join('') || `<p class="empty">No people match this filter.</p>`;
+        return;
+      }
+
+      byId('employeeList').innerHTML = people.map(person => {
+        const used = usedOnDay(person.id);
+        const requested = isRequestedOff(person.id);
+        const role = selected?.role || person.mainRole;
+        const score = roleFit(person, role);
+        const setting = roleSetting(person, role);
+        const usedText = used ? `Scheduled: ${used.board} ${used.code}` : requested ? 'Requested off this day *' : 'Available today';
+        const canAssign = selected && !used && !requested && canWorkRole(person, selected.role);
+        return `
+          <div class="employee-row ${used ? 'used' : ''} ${requested ? 'requested-off' : ''}" title="${usedText}">
+            <div class="employee-main">
+              <div class="employee-name"><span class="dot"></span>${person.name}${requested ? ' *' : ''}</div>
+              <div class="employee-meta">
+                <span>${person.mainRole}</span>
+                <span>${role}: ${setting.enabled ? `${setting.useType} ${score}` : 'not enabled'}</span>
+                <span>${usedText}</span>
+              </div>
+            </div>
+            <button class="edit-person" type="button" data-edit-person="${person.id}">Edit</button>
+            <button type="button" data-assign="${person.id}" ${canAssign ? '' : 'disabled'}>${used || requested ? 'i' : '+'}</button>
+          </div>
+        `;
+      }).join('') || `<p class="empty">No people match this filter.</p>`;
+    }
+
+    function renderBoards() {
+      const day = days.find(item => item.id === state.dayId);
+      byId('boards').innerHTML = boardNames.map(board => {
+        const slots = getSlots(board, day);
+        const filled = slots.filter(slot => state.assignments[slotId(board, state.dayId, slot.code)]).length;
+        return `
+          <section class="board">
+            <div class="board-header">
+              <div class="board-title">
+                <h3>${board}</h3>
+                <p>${priorityByBoard[board]}</p>
+              </div>
+              <div class="board-tools">
+                <span class="count-badge">${filled}/${slots.length}</span>
+                <button class="icon-btn" data-add-slot="${board}" type="button" title="Add a shift to ${board}">+</button>
+              </div>
+            </div>
+            <div class="slots">
+              ${slots.map(slot => renderSlot(board, slot)).join('')}
+            </div>
+          </section>
+        `;
+      }).join('');
+    }
+
+    function renderSlot(board, slot) {
+      const key = slotId(board, state.dayId, slot.code);
+      const employee = state.employees.find(person => person.id === state.assignments[key]);
+      const active = state.selectedSlot === key;
+      return `
+        <div class="slot">
+          <div class="slot-time">
+            <strong>${slot.code}</strong>
+            <span>${slot.role}</span>
+          </div>
+          <div class="slot-body">
+            ${employee ? `
+              <div class="assignment" data-slot="${key}" role="button" tabindex="0">
+                <span><strong>${employee.name}</strong><span>${slot.role} ${roleSetting(employee, slot.role).useType} ${roleFit(employee, slot.role)}/5 ${renderStars(roleFit(employee, slot.role))}</span></span>
+                <button class="remove" data-remove="${key}" title="Remove ${employee.name}" type="button">x</button>
+              </div>
+            ` : `
+              <button class="slot-button" data-slot="${key}" type="button" style="${active ? 'border-color: var(--accent); color: var(--accent-dark); background: #fffafa;' : ''}">
+                <span>Add person</span><span>${renderStars(slot.min)}</span>
+              </button>
+              <div class="slot-actions"><button class="delete-slot" data-delete-slot="${key}" type="button">Remove shift</button></div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function getSelectedSlot() {
+      if (!state.selectedSlot) return null;
+      const [, dayId, board, code] = state.selectedSlot.split('|');
+      const day = days.find(item => item.id === dayId);
+      const slot = getSlots(board, day).find(item => item.code === code);
+      return slot ? { ...slot, dayId, board, key: state.selectedSlot } : null;
+    }
+
+    function renderDetails() {
+      const selected = getSelectedSlot();
+      const locks = dayAssignments();
+      const requestCount = state.employees.filter(person => isRequestedOff(person.id)).length;
+      const scheduledRequestOff = locks.filter(item => isRequestedOff(item.employee.id));
+      if (!selected) {
+        byId('slotDetails').innerHTML = `
+          <div class="detail-card">
+            <h3>Select a slot</h3>
+            <p class="empty">Click an empty slot, then choose an available person from the picker. If someone is already used anywhere on this day, they stay visible but cannot be clicked.</p>
+          </div>
+          <div class="warning">${locks.length ? `${locks.length} people are already locked for this day.` : 'No one is locked on this day yet.'} ${requestCount ? `${requestCount} request-off marker(s) for this day.` : ''}</div>
+          ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
+        `;
+        return;
+      }
+      const assignedId = state.assignments[selected.key];
+      const assigned = state.employees.find(person => person.id === assignedId);
+      byId('slotDetails').innerHTML = `
+        <div class="detail-card">
+          <h3>${selected.board} ${selected.code}</h3>
+          <div class="detail-line"><span>Role</span><strong>${selected.role}</strong></div>
+          <div class="detail-line"><span>Minimum score</span><strong>${selected.min}/5</strong></div>
+          <div class="detail-line"><span>Current person</span><strong>${assigned ? assigned.name : 'Open'}</strong></div>
+          <div class="detail-line"><span>Rule note</span><strong>${selected.note}</strong></div>
+        </div>
+        <div class="warning">Priority order: Manager, Bar, Host/Foodrunner, then Server/Cocktail. Server slots should use whoever remains available after the earlier boards are covered. Requested-off people show with * and are disabled unless we add an override button later.</div>
+        ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
+      `;
+    }
+
+    function renderStats() {
+      const filled = Object.entries(state.assignments).filter(([key, value]) => key.startsWith(`${state.periodId}|`) && Boolean(value)).length;
+      const locks = dayAssignments().length;
+      byId('filledCount').textContent = filled;
+      byId('blockedCount').textContent = locks;
+    }
+
+    function renderPrintView() {
+      byId('printView').innerHTML = `
+        <h2>Jonathan's Schedule Draft</h2>
+        <div class="print-grid">
+          ${days.map(day => `
+            <div class="print-day">
+              <h3>${day.label} ${day.date}</h3>
+              <table>
+                <tbody>
+                  ${boardNames.map(board => {
+                    const filled = getSlots(board, day)
+                      .map(slot => {
+                        const person = state.employees.find(emp => emp.id === state.assignments[slotId(board, day.id, slot.code)]);
+                        return person ? `${slot.code}: ${person.name}` : null;
+                      })
+                      .filter(Boolean)
+                      .join('<br>');
+                    return `<tr><th>${board}</th><td>${filled || 'Open'}</td></tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function defaultSlotForBoard(board) {
+      if (board === 'Manager') return { role: 'Manager', min: 5, note: 'Extra manager coverage' };
+      if (board === 'Bar') return { role: 'Bar', min: 4, note: 'Extra bar coverage' };
+      if (board === 'Host/Foodrunner') return { role: 'Host', min: 3, note: 'Extra host/foodrunner coverage' };
+      return { role: 'Server', min: 3, note: 'Extra server/cocktail coverage' };
+    }
+
+    function openSlotModal(board) {
+      const defaults = defaultSlotForBoard(board);
+      byId('slotBoard').value = board;
+      byId('slotCode').value = '';
+      byId('slotRole').value = defaults.role;
+      byId('slotMin').value = String(defaults.min);
+      byId('slotNote').value = defaults.note;
+      byId('slotModal').classList.add('open');
+      setTimeout(() => byId('slotCode').focus(), 0);
+    }
+
+    function closeSlotModal() {
+      byId('slotModal').classList.remove('open');
+    }
+
+    function openPersonModal(employeeId) {
+      const person = state.employees.find(item => item.id === employeeId);
+      if (!person) return;
+      byId('editPersonId').value = person.id;
+      byId('editPersonName').value = person.name;
+      byId('editMainRole').value = person.mainRole;
+      byId('scoreGrid').innerHTML = roles.map(role => `
+        <div class="role-card ${roleSetting(person, role).enabled ? 'enabled' : ''}" data-role-card="${role}">
+          <div class="role-card-head">
+            <button class="role-bubble ${roleSetting(person, role).enabled ? 'enabled' : ''}" type="button" data-toggle-role="${role}">
+              ${roleSetting(person, role).enabled ? '✓ ' : ''}${role}
+            </button>
+            <span>${roleSetting(person, role).enabled ? `${roleSetting(person, role).useType} · ${roleSetting(person, role).skill}/5` : 'Off'}</span>
+          </div>
+          <div class="role-controls" ${roleSetting(person, role).enabled ? '' : 'hidden'}>
+            <select data-use-role="${role}">
+              ${useTypes.map(type => `<option value="${type}" ${roleSetting(person, role).useType === type ? 'selected' : ''}>${type}</option>`).join('')}
+            </select>
+            <select data-skill-role="${role}">
+              ${[1,2,3,4,5].map(score => `<option value="${score}" ${Number(roleSetting(person, role).skill || 1) === score ? 'selected' : ''}>${score}/5</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `).join('');
+      byId('personModal').classList.add('open');
+      setTimeout(() => byId('editPersonName').focus(), 0);
+    }
+
+    function closePersonModal() {
+      byId('personModal').classList.remove('open');
+    }
+
+    function savePersonEdits() {
+      const person = state.employees.find(item => item.id === byId('editPersonId').value);
+      if (!person) return;
+      person.name = byId('editPersonName').value.trim().toUpperCase();
+      person.mainRole = byId('editMainRole').value;
+      person.roleSettings = Object.fromEntries(roles.map(role => {
+        const card = document.querySelector(`[data-role-card="${role}"]`);
+        const enabled = card?.classList.contains('enabled') || false;
+        const useType = document.querySelector(`[data-use-role="${role}"]`)?.value || 'Training';
+        const skill = Number(document.querySelector(`[data-skill-role="${role}"]`)?.value || 1);
+        return [role, { enabled, useType, skill }];
+      }));
+      person.scores = Object.fromEntries(roles.map(role => [role, person.roleSettings[role].enabled ? person.roleSettings[role].skill : 1]));
+      closePersonModal();
+      render();
+    }
+
+    function deletePerson(employeeId) {
+      const person = state.employees.find(item => item.id === employeeId);
+      if (!person) return;
+      if (!confirm(`Remove ${person.name} from the employee list and clear their schedule assignments?`)) return;
+      state.employees = state.employees.filter(item => item.id !== employeeId);
+      for (const [key, assignedId] of Object.entries(state.assignments)) {
+        if (assignedId === employeeId) delete state.assignments[key];
+      }
+      closePersonModal();
+      render();
+    }
+
+    function addCustomSlot(board, code, role, min, note) {
+      const day = days.find(item => item.id === state.dayId);
+      const key = `${state.periodId}|${state.dayId}|${board}`;
+      const cleanCode = code.trim().toUpperCase();
+      if (!cleanCode) return;
+      const hidden = new Set(state.hiddenSlots[key] || []);
+      if (hidden.has(cleanCode)) {
+        state.hiddenSlots[key] = (state.hiddenSlots[key] || []).filter(item => item !== cleanCode);
+        if (!state.hiddenSlots[key].length) delete state.hiddenSlots[key];
+        closeSlotModal();
+        render();
+        return;
+      }
+      const exists = getSlots(board, day).some(slot => slot.code.toUpperCase() === cleanCode);
+      if (exists) {
+        alert(`${cleanCode} already exists on ${day.label} ${day.date} for ${board}. Try a label like 10AM D or EXTRA 10AM.`);
+        return;
+      }
+      state.customSlots[key] = state.customSlots[key] || [];
+      state.customSlots[key].push({
+        code: cleanCode,
+        label: cleanCode,
+        role,
+        min: Number(min),
+        note: note.trim() || 'One-off added shift'
+      });
+      closeSlotModal();
+      render();
+    }
+
+    function deleteCustomSlot(key) {
+      const [periodId, dayId, board, code] = key.split('|');
+      if (state.assignments[key]) {
+        alert('Remove the assigned person before deleting this shift.');
+        return;
+      }
+      const customKey = `${periodId}|${dayId}|${board}`;
+      const customBefore = state.customSlots[customKey] || [];
+      const isCustom = customBefore.some(slot => slot.code === code);
+      if (isCustom) {
+        state.customSlots[customKey] = customBefore.filter(slot => slot.code !== code);
+        if (!state.customSlots[customKey].length) delete state.customSlots[customKey];
+      } else {
+        state.hiddenSlots[customKey] = Array.from(new Set([...(state.hiddenSlots[customKey] || []), code]));
+      }
+      if (state.selectedSlot === key) state.selectedSlot = null;
+      render();
+    }
+
+    function render() {
+      refreshDaysForPeriod();
+      renderPeriodControls();
+      renderDayControls();
+      renderRoleFilters();
+      renderBoards();
+      renderEmployees();
+      renderDetails();
+      renderStats();
+      renderPrintView();
+      save();
+    }
+
+    function assignPerson(employeeId) {
+      if (!state.selectedSlot) return;
+      if (usedOnDay(employeeId)) return;
+      const slot = getSelectedSlot();
+      const employee = state.employees.find(person => person.id === employeeId);
+      if (!slot || !employee || isRequestedOff(employeeId) || !canWorkRole(employee, slot.role)) return;
+      state.assignments[state.selectedSlot] = employeeId;
+      state.selectedSlot = null;
+      render();
+    }
+
+    function autofill() {
+      const day = days.find(item => item.id === state.dayId);
+      for (const board of boardNames) {
+        for (const slot of getSlots(board, day)) {
+          const key = slotId(board, state.dayId, slot.code);
+          if (state.assignments[key]) continue;
+          const candidate = state.employees
+            .filter(person => !usedOnDay(person.id))
+            .filter(person => !isRequestedOff(person.id))
+            .filter(person => canWorkRole(person, slot.role))
+            .filter(person => roleFit(person, slot.role) >= slot.min)
+            .sort(candidateSortForRole(slot.role))[0];
+          if (candidate) state.assignments[key] = candidate.id;
+        }
+      }
+      render();
+    }
+
+    function clearCurrentDay() {
+      for (const key of Object.keys(state.assignments)) {
+        if (key.startsWith(`${state.periodId}|${state.dayId}|`)) delete state.assignments[key];
+      }
+      state.selectedSlot = null;
+      render();
+    }
+
+    function createPeriod(startDate, length) {
+      if (!startDate) {
+        alert('Pick a start date for the new schedule period.');
+        return;
+      }
+      const period = buildPeriod(startDate, Number(length));
+      const existing = state.periods.find(item => item.id === period.id);
+      if (!existing) state.periods.push(period);
+      state.periodId = period.id;
+      state.dayId = buildDays(period)[0].id;
+      state.selectedSlot = null;
+      state.newPeriodDraftStart = period.startDate;
+      state.newPeriodDraftLength = period.length;
+      render();
+    }
+
+    function shiftDraftMonth(delta) {
+      const current = byId('newPeriodStart').value || state.newPeriodDraftStart || currentPeriod().startDate;
+      const date = parseLocalDate(current);
+      date.setMonth(date.getMonth() + delta);
+      state.newPeriodDraftStart = toDateId(date);
+      byId('newPeriodStart').value = state.newPeriodDraftStart;
+    }
+
+    document.addEventListener('click', event => {
+      const dayButton = event.target.closest('[data-day]');
+      if (dayButton) {
+        state.dayId = dayButton.dataset.day;
+        state.selectedSlot = null;
+        render();
+        return;
+      }
+
+      const addSlotButton = event.target.closest('[data-add-slot]');
+      if (addSlotButton) {
+        openSlotModal(addSlotButton.dataset.addSlot);
+        return;
+      }
+
+      const editPersonButton = event.target.closest('[data-edit-person]');
+      if (editPersonButton) {
+        openPersonModal(editPersonButton.dataset.editPerson);
+        return;
+      }
+
+      const deleteSlotButton = event.target.closest('[data-delete-slot]');
+      if (deleteSlotButton) {
+        deleteCustomSlot(deleteSlotButton.dataset.deleteSlot);
+        return;
+      }
+
+      const requestOffButton = event.target.closest('[data-request-off]');
+      if (requestOffButton) {
+        toggleRequestOff(requestOffButton.dataset.requestOff);
+        return;
+      }
+
+      const toggleRoleButton = event.target.closest('[data-toggle-role]');
+      if (toggleRoleButton) {
+        const role = toggleRoleButton.dataset.toggleRole;
+        const card = document.querySelector(`[data-role-card="${role}"]`);
+        const controls = card?.querySelector('.role-controls');
+        const isEnabled = !card?.classList.contains('enabled');
+        card?.classList.toggle('enabled', isEnabled);
+        toggleRoleButton.classList.toggle('enabled', isEnabled);
+        toggleRoleButton.textContent = `${isEnabled ? '✓ ' : ''}${role}`;
+        if (controls) controls.hidden = !isEnabled;
+        const summary = card?.querySelector('.role-card-head span');
+        if (summary) {
+          const useType = card?.querySelector(`[data-use-role="${role}"]`)?.value || 'Training';
+          const skill = card?.querySelector(`[data-skill-role="${role}"]`)?.value || '1';
+          summary.textContent = isEnabled ? `${useType} · ${skill}/5` : 'Off';
+        }
+        return;
+      }
+
+      const roleButton = event.target.closest('[data-role]');
+      if (roleButton) {
+        state.roleFilter = roleButton.dataset.role;
+        render();
+        return;
+      }
+
+      const slotButton = event.target.closest('[data-slot]');
+      if (slotButton) {
+        state.selectedSlot = slotButton.dataset.slot;
+        render();
+        return;
+      }
+
+      const removeButton = event.target.closest('[data-remove]');
+      if (removeButton) {
+        delete state.assignments[removeButton.dataset.remove];
+        state.selectedSlot = null;
+        event.stopPropagation();
+        render();
+        return;
+      }
+
+      const assignButton = event.target.closest('[data-assign]');
+      if (assignButton) {
+        assignPerson(assignButton.dataset.assign);
+      }
+    });
+
+    byId('selectedDay').addEventListener('change', event => {
+      state.dayId = event.target.value;
+      state.selectedSlot = null;
+      render();
+    });
+
+    byId('periodSelect').addEventListener('change', event => {
+      state.periodId = event.target.value;
+      state.dayId = buildDays(currentPeriod())[0].id;
+      state.selectedSlot = null;
+      state.newPeriodDraftStart = currentPeriod().startDate;
+      state.newPeriodDraftLength = currentPeriod().length;
+      render();
+    });
+
+    byId('newPeriodStart').addEventListener('input', event => {
+      state.newPeriodDraftStart = event.target.value;
+    });
+
+    byId('newPeriodLength').addEventListener('change', event => {
+      state.newPeriodDraftLength = Number(event.target.value);
+    });
+
+    byId('prevMonthBtn').addEventListener('click', () => shiftDraftMonth(-1));
+    byId('nextMonthBtn').addEventListener('click', () => shiftDraftMonth(1));
+
+    byId('newPeriodBtn').addEventListener('click', () => {
+      createPeriod(byId('newPeriodStart').value, byId('newPeriodLength').value);
+    });
+
+    byId('search').addEventListener('input', event => {
+      state.search = event.target.value;
+      renderEmployees();
+    });
+
+    byId('peopleModeBtn').addEventListener('click', () => {
+      state.sidebarMode = 'people';
+      renderEmployees();
+      renderDetails();
+    });
+
+    byId('requestModeBtn').addEventListener('click', () => {
+      state.sidebarMode = 'requests';
+      state.selectedSlot = null;
+      render();
+    });
+
+    byId('addPersonForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const name = byId('newName').value.trim().toUpperCase();
+      const mainRole = byId('newRole').value;
+      if (!name) return;
+      const scores = Object.fromEntries(roles.map(role => [role, role === mainRole ? 3 : 1]));
+      state.employees.push({ id: `emp-${Date.now()}`, name, mainRole, scores, roleSettings: roleSettingsFromScores(scores, mainRole) });
+      byId('newName').value = '';
+      render();
+    });
+
+    byId('slotForm').addEventListener('submit', event => {
+      event.preventDefault();
+      addCustomSlot(
+        byId('slotBoard').value,
+        byId('slotCode').value,
+        byId('slotRole').value,
+        byId('slotMin').value,
+        byId('slotNote').value
+      );
+    });
+
+    byId('personForm').addEventListener('submit', event => {
+      event.preventDefault();
+      savePersonEdits();
+    });
+
+    byId('closePersonModal').addEventListener('click', closePersonModal);
+    byId('cancelPersonBtn').addEventListener('click', closePersonModal);
+    byId('deletePersonBtn').addEventListener('click', () => deletePerson(byId('editPersonId').value));
+    byId('personModal').addEventListener('click', event => {
+      if (event.target.id === 'personModal') closePersonModal();
+    });
+    byId('personModal').addEventListener('change', event => {
+      const control = event.target.closest('[data-use-role], [data-skill-role]');
+      if (!control) return;
+      const role = control.dataset.useRole || control.dataset.skillRole;
+      const card = document.querySelector(`[data-role-card="${role}"]`);
+      const summary = card?.querySelector('.role-card-head span');
+      if (!summary || !card?.classList.contains('enabled')) return;
+      const useType = card.querySelector(`[data-use-role="${role}"]`)?.value || 'Training';
+      const skill = card.querySelector(`[data-skill-role="${role}"]`)?.value || '1';
+      summary.textContent = `${useType} · ${skill}/5`;
+    });
+
+    byId('closeSlotModal').addEventListener('click', closeSlotModal);
+    byId('cancelSlotBtn').addEventListener('click', closeSlotModal);
+    byId('slotModal').addEventListener('click', event => {
+      if (event.target.id === 'slotModal') closeSlotModal();
+    });
+
+    byId('clearDayBtn').addEventListener('click', clearCurrentDay);
+    byId('autoFillBtn').addEventListener('click', autofill);
+    byId('printBtn').addEventListener('click', () => window.print());
+    byId('copyLinkBtn').addEventListener('click', async () => {
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(state.assignments))));
+      const url = `${location.href.split('#')[0]}#readonly=${data}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        byId('copyLinkBtn').textContent = 'Copied Link';
+        setTimeout(() => byId('copyLinkBtn').textContent = 'Copy Read-Only Link', 1200);
+      } catch {
+        prompt('Copy this read-only draft link:', url);
+      }
+    });
+
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if (hash.has('readonly')) {
+      try {
+        state.assignments = scopedLegacyObject(JSON.parse(decodeURIComponent(escape(atob(hash.get('readonly'))))), 3);
+      } catch {}
+    }
+
+    render();
+  </script>
+</body>
+</html>
