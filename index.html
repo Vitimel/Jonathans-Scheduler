@@ -586,6 +586,19 @@
       font-weight: 900;
     }
 
+    .source-badge {
+      display: inline-flex;
+      width: fit-content;
+      margin-top: 5px;
+      border-radius: 999px;
+      padding: 2px 6px;
+      background: #dff0e8;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
     .slot-actions {
       display: flex;
       justify-content: flex-end;
@@ -785,6 +798,50 @@
     .score-row select {
       min-height: 32px;
       padding: 4px 7px;
+    }
+
+    .set-schedule-builder {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .set-schedule-builder input,
+    .set-schedule-builder select {
+      min-height: 34px;
+    }
+
+    .set-schedule-list {
+      display: grid;
+      gap: 8px;
+      max-height: 180px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .set-schedule-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px;
+      background: #fbfcfb;
+      font-size: 12px;
+    }
+
+    .set-schedule-row strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .set-schedule-row span {
+      color: var(--muted);
+    }
+
+    .set-schedule-row.inactive {
+      opacity: 0.58;
     }
 
     .modal-actions {
@@ -1010,6 +1067,17 @@
           <label>Role bubbles</label>
           <div class="score-grid" id="scoreGrid"></div>
         </div>
+        <div class="field">
+          <label>Set Schedule</label>
+          <div class="set-schedule-builder">
+            <select id="setDay"></select>
+            <select id="setBoard"></select>
+            <input id="setCode" placeholder="Shift code, like AM or 4CL" />
+            <select id="setRole"></select>
+          </div>
+          <button class="btn" type="button" id="addSetScheduleBtn">Add Set Shift</button>
+          <div class="set-schedule-list" id="setScheduleList"></div>
+        </div>
         <div class="warning">Click a role bubble if they can work it. Use type controls when the scheduler should pull them there; skill controls how strong they are there.</div>
         <div class="modal-actions">
           <button class="btn" type="button" id="deletePersonBtn">Remove Person</button>
@@ -1215,7 +1283,7 @@
     function normalizeEmployee(person) {
       const scores = person.scores || Object.fromEntries(roles.map(role => [role, role === person.mainRole ? 3 : 1]));
       const roleSettings = person.roleSettings || roleSettingsFromScores(scores, person.mainRole);
-      return { ...person, scores, roleSettings };
+      return { ...person, scores, roleSettings, setSchedules: Array.isArray(person.setSchedules) ? person.setSchedules : [] };
     }
 
     function normalizePeriods(periods) {
@@ -1244,9 +1312,11 @@
       search: '',
       employees: (loadJson('jonathansEmployees', employees) || employees).map(normalizeEmployee),
       assignments: scopedLegacyObject(loadJson('jonathansAssignments', {}), 3),
+      assignmentMeta: scopedLegacyObject(loadJson('jonathansAssignmentMeta', {}), 3),
       customSlots: scopedLegacyObject(loadJson('jonathansCustomSlots', {}), 2),
       hiddenSlots: scopedLegacyObject(loadJson('jonathansHiddenSlots', {}), 2),
-      requestsOff: scopedLegacyObject(loadJson('jonathansRequestsOff', {}), 2)
+      requestsOff: scopedLegacyObject(loadJson('jonathansRequestsOff', {}), 2),
+      setScheduleWarnings: scopedLegacyObject(loadJson('jonathansSetScheduleWarnings', {}), 1)
     };
 
     const boardNames = ['Manager', 'Bar', 'Host/Foodrunner', 'Server/Cocktail'];
@@ -1256,9 +1326,11 @@
       localStorage.setItem('jonathansCurrentPeriodId', state.periodId);
       localStorage.setItem('jonathansEmployees', JSON.stringify(state.employees));
       localStorage.setItem('jonathansAssignments', JSON.stringify(state.assignments));
+      localStorage.setItem('jonathansAssignmentMeta', JSON.stringify(state.assignmentMeta));
       localStorage.setItem('jonathansCustomSlots', JSON.stringify(state.customSlots));
       localStorage.setItem('jonathansHiddenSlots', JSON.stringify(state.hiddenSlots));
       localStorage.setItem('jonathansRequestsOff', JSON.stringify(state.requestsOff));
+      localStorage.setItem('jonathansSetScheduleWarnings', JSON.stringify(state.setScheduleWarnings));
     };
 
     function slotId(board, dayId, code) {
@@ -1280,6 +1352,20 @@
       return dayAssignments(dayId).find(item => item.employee.id === employeeId);
     }
 
+    function periodWarningKey(periodId = state.periodId) {
+      return `${periodId}|set`;
+    }
+
+    function addSetScheduleWarning(message, periodId = state.periodId) {
+      const key = periodWarningKey(periodId);
+      state.setScheduleWarnings[key] = state.setScheduleWarnings[key] || [];
+      state.setScheduleWarnings[key].push(message);
+    }
+
+    function isSetAssignment(key) {
+      return state.assignmentMeta[key]?.source === 'set';
+    }
+
     function isRequestedOff(employeeId, dayId = state.dayId) {
       return Boolean(state.requestsOff[`${state.periodId}|${dayId}|${employeeId}`]);
     }
@@ -1289,6 +1375,10 @@
       if (state.requestsOff[key]) delete state.requestsOff[key];
       else state.requestsOff[key] = true;
       render();
+    }
+
+    function dayNameForDateId(dayId) {
+      return formatDayLabel(parseLocalDate(dayId));
     }
 
     function getSlots(board, day) {
@@ -1381,6 +1471,9 @@
       `).join('');
       byId('slotRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
       byId('editMainRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+      byId('setDay').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `<option value="${day}">${day}</option>`).join('');
+      byId('setBoard').innerHTML = boardNames.map(board => `<option value="${board}">${board}</option>`).join('');
+      byId('setRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
     }
 
     function renderEmployees() {
@@ -1475,6 +1568,7 @@
       const key = slotId(board, state.dayId, slot.code);
       const employee = state.employees.find(person => person.id === state.assignments[key]);
       const active = state.selectedSlot === key;
+      const setLabel = isSetAssignment(key) ? '<span class="source-badge">SET</span>' : '';
       return `
         <div class="slot">
           <div class="slot-time">
@@ -1484,7 +1578,7 @@
           <div class="slot-body">
             ${employee ? `
               <div class="assignment" data-slot="${key}" role="button" tabindex="0">
-                <span><strong>${employee.name}</strong><span>${slot.role} ${roleSetting(employee, slot.role).useType} ${roleFit(employee, slot.role)}/5 ${renderStars(roleFit(employee, slot.role))}</span></span>
+                <span><strong>${employee.name}</strong><span>${slot.role} ${roleSetting(employee, slot.role).useType} ${roleFit(employee, slot.role)}/5 ${renderStars(roleFit(employee, slot.role))}</span>${setLabel}</span>
                 <button class="remove" data-remove="${key}" title="Remove ${employee.name}" type="button">x</button>
               </div>
             ` : `
@@ -1511,6 +1605,7 @@
       const locks = dayAssignments();
       const requestCount = state.employees.filter(person => isRequestedOff(person.id)).length;
       const scheduledRequestOff = locks.filter(item => isRequestedOff(item.employee.id));
+      const setWarnings = state.setScheduleWarnings[periodWarningKey()] || [];
       if (!selected) {
         byId('slotDetails').innerHTML = `
           <div class="detail-card">
@@ -1519,21 +1614,25 @@
           </div>
           <div class="warning">${locks.length ? `${locks.length} people are already locked for this day.` : 'No one is locked on this day yet.'} ${requestCount ? `${requestCount} request-off marker(s) for this day.` : ''}</div>
           ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
+          ${setWarnings.length ? `<div class="warning">${setWarnings.join('<br>')}</div>` : ''}
         `;
         return;
       }
       const assignedId = state.assignments[selected.key];
       const assigned = state.employees.find(person => person.id === assignedId);
+      const source = state.assignmentMeta[selected.key]?.source === 'set' ? 'Set schedule' : assigned ? 'Manual/auto' : 'Open';
       byId('slotDetails').innerHTML = `
         <div class="detail-card">
           <h3>${selected.board} ${selected.code}</h3>
           <div class="detail-line"><span>Role</span><strong>${selected.role}</strong></div>
           <div class="detail-line"><span>Minimum score</span><strong>${selected.min}/5</strong></div>
           <div class="detail-line"><span>Current person</span><strong>${assigned ? assigned.name : 'Open'}</strong></div>
+          <div class="detail-line"><span>Source</span><strong>${source}</strong></div>
           <div class="detail-line"><span>Rule note</span><strong>${selected.note}</strong></div>
         </div>
         <div class="warning">Priority order: Manager, Bar, Host/Foodrunner, then Server/Cocktail. Server slots should use whoever remains available after the earlier boards are covered. Requested-off people show with * and are disabled unless we add an override button later.</div>
         ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
+        ${setWarnings.length ? `<div class="warning">${setWarnings.join('<br>')}</div>` : ''}
       `;
     }
 
@@ -1617,8 +1716,67 @@
           </div>
         </div>
       `).join('');
+      byId('setDay').value = 'Mon';
+      byId('setBoard').value = person.mainRole === 'Bar' ? 'Bar' : person.mainRole === 'Manager' ? 'Manager' : person.mainRole === 'Host' || person.mainRole === 'Foodrunner' ? 'Host/Foodrunner' : 'Server/Cocktail';
+      byId('setRole').value = person.mainRole;
+      byId('setCode').value = '';
+      renderSetScheduleList(person);
       byId('personModal').classList.add('open');
       setTimeout(() => byId('editPersonName').focus(), 0);
+    }
+
+    function renderSetScheduleList(person) {
+      const rules = person.setSchedules || [];
+      byId('setScheduleList').innerHTML = rules.length ? rules.map(rule => `
+        <div class="set-schedule-row ${rule.active ? '' : 'inactive'}" data-set-rule="${rule.id}">
+          <div>
+            <strong>${rule.day} ${rule.board} ${rule.code}</strong>
+            <span>${rule.role} · ${rule.active ? 'Active' : 'Inactive'}</span>
+          </div>
+          <button class="btn" type="button" data-toggle-set-rule="${rule.id}">${rule.active ? 'Pause' : 'Use'}</button>
+          <button class="btn" type="button" data-remove-set-rule="${rule.id}">Remove</button>
+        </div>
+      `).join('') : '<p class="empty">No permanent shifts yet.</p>';
+    }
+
+    function currentEditingPerson() {
+      return state.employees.find(item => item.id === byId('editPersonId').value);
+    }
+
+    function addSetScheduleRule() {
+      const person = currentEditingPerson();
+      if (!person) return;
+      const code = byId('setCode').value.trim().toUpperCase();
+      if (!code) {
+        alert('Enter a shift code for the set schedule.');
+        return;
+      }
+      person.setSchedules = person.setSchedules || [];
+      person.setSchedules.push({
+        id: `set-${Date.now()}`,
+        day: byId('setDay').value,
+        board: byId('setBoard').value,
+        code,
+        role: byId('setRole').value,
+        active: true
+      });
+      byId('setCode').value = '';
+      renderSetScheduleList(person);
+    }
+
+    function toggleSetScheduleRule(ruleId) {
+      const person = currentEditingPerson();
+      const rule = person?.setSchedules?.find(item => item.id === ruleId);
+      if (!rule) return;
+      rule.active = !rule.active;
+      renderSetScheduleList(person);
+    }
+
+    function removeSetScheduleRule(ruleId) {
+      const person = currentEditingPerson();
+      if (!person) return;
+      person.setSchedules = (person.setSchedules || []).filter(item => item.id !== ruleId);
+      renderSetScheduleList(person);
     }
 
     function closePersonModal() {
@@ -1648,7 +1806,10 @@
       if (!confirm(`Remove ${person.name} from the employee list and clear their schedule assignments?`)) return;
       state.employees = state.employees.filter(item => item.id !== employeeId);
       for (const [key, assignedId] of Object.entries(state.assignments)) {
-        if (assignedId === employeeId) delete state.assignments[key];
+        if (assignedId === employeeId) {
+          delete state.assignments[key];
+          delete state.assignmentMeta[key];
+        }
       }
       closePersonModal();
       render();
@@ -1703,6 +1864,53 @@
       render();
     }
 
+    function applySetSchedulesToPeriod(periodId = state.periodId) {
+      const period = state.periods.find(item => item.id === periodId);
+      if (!period) return;
+      const previousPeriodId = state.periodId;
+      state.periodId = periodId;
+      const periodDays = buildDays(period);
+      state.setScheduleWarnings[periodWarningKey(periodId)] = [];
+
+      for (const person of state.employees) {
+        for (const rule of person.setSchedules || []) {
+          if (!rule.active) continue;
+          for (const day of periodDays) {
+            if (day.label !== rule.day) continue;
+            const slots = getSlots(rule.board, day);
+            const slot = slots.find(item => item.code.toUpperCase() === rule.code.toUpperCase());
+            if (!slot) {
+              addSetScheduleWarning(`${person.name}: ${rule.day} ${rule.board} ${rule.code} does not exist in ${period.label}.`, periodId);
+              continue;
+            }
+            const key = slotId(rule.board, day.id, slot.code);
+            const existing = state.assignments[key];
+            if (existing && existing !== person.id) {
+              const other = state.employees.find(item => item.id === existing)?.name || 'Someone';
+              addSetScheduleWarning(`${person.name}: ${rule.day} ${rule.board} ${rule.code} is already filled by ${other}.`, periodId);
+              continue;
+            }
+            const otherAssignment = Object.entries(state.assignments).find(([assignmentKey, employeeId]) =>
+              assignmentKey.startsWith(`${periodId}|${day.id}|`) && employeeId === person.id && assignmentKey !== key
+            );
+            if (otherAssignment) {
+              const [, , otherBoard, otherCode] = otherAssignment[0].split('|');
+              addSetScheduleWarning(`${person.name}: ${rule.day} ${rule.board} ${rule.code} conflicts with ${otherBoard} ${otherCode}.`, periodId);
+              continue;
+            }
+            state.assignments[key] = person.id;
+            state.assignmentMeta[key] = { source: 'set', ruleId: rule.id };
+            if (isRequestedOff(person.id, day.id)) {
+              addSetScheduleWarning(`${person.name}: ${rule.day} ${rule.board} ${rule.code} was placed but they requested off.`, periodId);
+            }
+          }
+        }
+      }
+
+      if (!state.setScheduleWarnings[periodWarningKey(periodId)].length) delete state.setScheduleWarnings[periodWarningKey(periodId)];
+      state.periodId = previousPeriodId;
+    }
+
     function render() {
       refreshDaysForPeriod();
       renderPeriodControls();
@@ -1723,6 +1931,7 @@
       const employee = state.employees.find(person => person.id === employeeId);
       if (!slot || !employee || isRequestedOff(employeeId) || !canWorkRole(employee, slot.role)) return;
       state.assignments[state.selectedSlot] = employeeId;
+      state.assignmentMeta[state.selectedSlot] = { source: 'manual' };
       state.selectedSlot = null;
       render();
     }
@@ -1739,7 +1948,10 @@
             .filter(person => canWorkRole(person, slot.role))
             .filter(person => roleFit(person, slot.role) >= slot.min)
             .sort(candidateSortForRole(slot.role))[0];
-          if (candidate) state.assignments[key] = candidate.id;
+          if (candidate) {
+            state.assignments[key] = candidate.id;
+            state.assignmentMeta[key] = { source: 'auto' };
+          }
         }
       }
       render();
@@ -1766,6 +1978,7 @@
       state.selectedSlot = null;
       state.newPeriodDraftStart = period.startDate;
       state.newPeriodDraftLength = period.length;
+      applySetSchedulesToPeriod(period.id);
       render();
     }
 
@@ -1810,6 +2023,18 @@
         return;
       }
 
+      const toggleSetButton = event.target.closest('[data-toggle-set-rule]');
+      if (toggleSetButton) {
+        toggleSetScheduleRule(toggleSetButton.dataset.toggleSetRule);
+        return;
+      }
+
+      const removeSetButton = event.target.closest('[data-remove-set-rule]');
+      if (removeSetButton) {
+        removeSetScheduleRule(removeSetButton.dataset.removeSetRule);
+        return;
+      }
+
       const toggleRoleButton = event.target.closest('[data-toggle-role]');
       if (toggleRoleButton) {
         const role = toggleRoleButton.dataset.toggleRole;
@@ -1846,6 +2071,7 @@
       const removeButton = event.target.closest('[data-remove]');
       if (removeButton) {
         delete state.assignments[removeButton.dataset.remove];
+        delete state.assignmentMeta[removeButton.dataset.remove];
         state.selectedSlot = null;
         event.stopPropagation();
         render();
@@ -1931,6 +2157,8 @@
       event.preventDefault();
       savePersonEdits();
     });
+
+    byId('addSetScheduleBtn').addEventListener('click', addSetScheduleRule);
 
     byId('closePersonModal').addEventListener('click', closePersonModal);
     byId('cancelPersonBtn').addEventListener('click', closePersonModal);
