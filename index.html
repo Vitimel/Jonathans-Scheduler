@@ -130,6 +130,12 @@
 
     .status-pill strong { color: var(--ink); }
 
+    .select-small {
+      width: auto;
+      min-height: 36px;
+      font-size: 13px;
+    }
+
     .btn {
       min-height: 36px;
       padding: 0 12px;
@@ -380,6 +386,14 @@
       margin-bottom: 14px;
     }
 
+    .week-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     .day-tabs {
       display: flex;
       gap: 6px;
@@ -413,10 +427,88 @@
 
     .boards {
       display: grid;
-      grid-template-columns: repeat(4, minmax(188px, 1fr));
+      grid-template-columns: repeat(5, minmax(176px, 1fr));
       gap: 12px;
       align-items: start;
     }
+
+    .assist-panel {
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .assist-panel[hidden] {
+      display: none;
+    }
+
+    .assist-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfb;
+    }
+
+    .assist-head h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .assist-body {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .open-shift-row,
+    .check-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .open-shift-row button {
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid var(--line-strong);
+      background: #fff;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .check-row.pass {
+      background: var(--green-soft);
+      border-color: rgba(35, 120, 90, 0.22);
+      color: #163f31;
+    }
+
+    .check-row.warn {
+      background: var(--amber-soft);
+      border-color: rgba(169, 107, 0, 0.25);
+      color: #694100;
+    }
+
+    .check-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    .check-row.pass .check-dot { background: var(--green); }
 
     .board {
       background: var(--panel);
@@ -671,6 +763,24 @@
       padding: 10px;
       font-size: 13px;
       line-height: 1.4;
+    }
+
+    .notes-box {
+      width: 100%;
+      min-height: 92px;
+      resize: vertical;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      padding: 9px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    .notes-box:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(159, 47, 47, 0.12);
     }
 
     .modal-backdrop {
@@ -935,7 +1045,7 @@
     <header class="topbar">
       <div class="brand">
         <h1>Jonathan's Scheduler</h1>
-        <p id="periodSummary">Prototype seeded from the June 1-14 workbook. Assign once per day across Manager, Bar, Host/Foodrunner, and Server/Cocktail.</p>
+        <p id="periodSummary">Prototype seeded from the June 1-14 workbook. Assign once per day across Manager, Bar, Host/Foodrunner, Server, and Cocktail.</p>
       </div>
       <div class="actions">
         <div class="period-controls">
@@ -948,10 +1058,13 @@
             <option value="14" selected>2 weeks</option>
           </select>
           <button class="btn" id="newPeriodBtn" type="button">New Period</button>
+          <button class="btn" id="copySetupBtn" type="button">Copy Setup</button>
+          <button class="btn" id="copyFullBtn" type="button">Copy Full</button>
         </div>
         <div class="status-pill"><span class="dot"></span><strong id="filledCount">0</strong> filled</div>
         <div class="status-pill"><span class="dot" style="background: var(--amber)"></span><strong id="blockedCount">0</strong> day locks</div>
         <button class="btn" id="clearDayBtn">Clear Day</button>
+        <button class="btn" id="exportExcelBtn">Export Excel</button>
         <button class="btn" id="printBtn">Print</button>
         <button class="btn primary" id="copyLinkBtn">Copy Read-Only Link</button>
       </div>
@@ -992,8 +1105,27 @@
       <section class="workspace">
         <div class="week-tabs">
           <div class="day-tabs" id="dayTabs"></div>
-          <button class="btn" id="autoFillBtn">Auto-fill visible blanks</button>
+          <div class="week-actions">
+            <select id="dayTypeSelect" class="select-small" title="Day type preset"></select>
+            <button class="btn" id="openShiftsBtn" type="button">Open Shifts</button>
+            <button class="btn" id="publishCheckBtn" type="button">Publish Check</button>
+            <button class="btn" id="autoFillBtn">Auto-fill visible blanks</button>
+          </div>
         </div>
+        <section class="assist-panel" id="openShiftsPanel" hidden>
+          <div class="assist-head">
+            <h3>Open Shifts</h3>
+            <button class="icon-btn" id="closeOpenShiftsBtn" type="button" aria-label="Close open shifts">x</button>
+          </div>
+          <div class="assist-body" id="openShiftsList"></div>
+        </section>
+        <section class="assist-panel" id="publishPanel" hidden>
+          <div class="assist-head">
+            <h3>Publish Checklist</h3>
+            <button class="icon-btn" id="closePublishBtn" type="button" aria-label="Close publish checklist">x</button>
+          </div>
+          <div class="assist-body" id="publishList"></div>
+        </section>
         <div class="boards" id="boards"></div>
       </section>
 
@@ -1092,6 +1224,7 @@
     const roles = ['Manager', 'Bar', 'Host', 'Foodrunner', 'Server', 'Cocktail', 'Board', 'Expo', 'To-go', 'Floor'];
     const useTypes = ['Preferred', 'Normal', 'Backup', 'Training'];
     const useRank = { Preferred: 4, Normal: 3, Backup: 2, Training: 1 };
+    const dayTypes = ['Normal', 'Slow', 'Busy', 'School Out', 'Holiday/Event'];
 
     function parseLocalDate(value) {
       const [year, month, day] = value.split('-').map(Number);
@@ -1231,7 +1364,8 @@
         ['5HST', '5 Host', 'Host', 3, 'Later host'],
         ['5FDR', '5 Foodrunner', 'Foodrunner', 3, 'Later foodrunner']
       ],
-      'Server/Cocktail': []
+      Server: [],
+      Cocktail: []
     };
 
     const serverByDay = {
@@ -1245,12 +1379,16 @@
     };
 
     for (const dayName of Object.keys(serverByDay)) {
-      templates['Server/Cocktail'].push(...serverByDay[dayName].map(code => {
+      templates.Server.push(...serverByDay[dayName].filter(code => !code.includes('CKT')).map(code => {
         const isCocktail = code.includes('CKT');
         const isClose = code.includes('CL');
         const isParty = /\(7\)|\(8\)|\(6\)/.test(code);
         const min = isClose ? 5 : isParty || isCocktail ? 4 : 3;
         return [code, code, isCocktail ? 'Cocktail' : 'Server', min, isClose ? 'Closer needs a strong person' : isParty ? 'Party/heavier section, rotate fairly' : 'Dining room section'];
+      }));
+      templates.Cocktail.push(...serverByDay[dayName].filter(code => code.includes('CKT')).map(code => {
+        const isClose = code.includes('CL');
+        return [code, code, 'Cocktail', isClose ? 5 : 4, isClose ? 'Cocktail close needs a strong person' : 'Cocktail coverage'];
       }));
     }
 
@@ -1258,7 +1396,8 @@
       Manager: 'Managers first',
       Bar: 'Mostly set schedule',
       'Host/Foodrunner': 'Fill before Server',
-      'Server/Cocktail': 'Fill from remaining available people'
+      Server: 'Dining room sections',
+      Cocktail: 'Cocktail shifts, same day lock'
     };
 
     const defaultPeriod = buildPeriod('2026-06-01', 14);
@@ -1278,6 +1417,29 @@
         scoped[parts.length === delimiterCount ? `${defaultPeriod.id}|${key}` : key] = value;
       }
       return scoped;
+    }
+
+    function migrateBoardKey(key) {
+      const parts = key.split('|');
+      const boardIndex = parts.length === 4 ? 2 : parts.length === 3 ? 2 : -1;
+      const codeIndex = parts.length === 4 ? 3 : -1;
+      if (boardIndex >= 0 && parts[boardIndex] === 'Server/Cocktail') {
+        parts[boardIndex] = codeIndex >= 0 && parts[codeIndex].includes('CKT') ? 'Cocktail' : 'Server';
+      }
+      return parts.join('|');
+    }
+
+    function migrateBoardScopedObject(raw) {
+      const migrated = {};
+      for (const [key, value] of Object.entries(raw || {})) {
+        migrated[migrateBoardKey(key)] = value;
+      }
+      return migrated;
+    }
+
+    function normalizeBoardName(board, code = '') {
+      if (board !== 'Server/Cocktail') return board;
+      return code.includes('CKT') ? 'Cocktail' : 'Server';
     }
 
     function normalizeEmployee(person) {
@@ -1310,16 +1472,25 @@
       newPeriodDraftStart: null,
       newPeriodDraftLength: null,
       search: '',
+      showOpenShifts: false,
+      showPublishCheck: false,
       employees: (loadJson('jonathansEmployees', employees) || employees).map(normalizeEmployee),
-      assignments: scopedLegacyObject(loadJson('jonathansAssignments', {}), 3),
-      assignmentMeta: scopedLegacyObject(loadJson('jonathansAssignmentMeta', {}), 3),
-      customSlots: scopedLegacyObject(loadJson('jonathansCustomSlots', {}), 2),
-      hiddenSlots: scopedLegacyObject(loadJson('jonathansHiddenSlots', {}), 2),
+      assignments: migrateBoardScopedObject(scopedLegacyObject(loadJson('jonathansAssignments', {}), 3)),
+      assignmentMeta: migrateBoardScopedObject(scopedLegacyObject(loadJson('jonathansAssignmentMeta', {}), 3)),
+      customSlots: migrateBoardScopedObject(scopedLegacyObject(loadJson('jonathansCustomSlots', {}), 2)),
+      hiddenSlots: migrateBoardScopedObject(scopedLegacyObject(loadJson('jonathansHiddenSlots', {}), 2)),
       requestsOff: scopedLegacyObject(loadJson('jonathansRequestsOff', {}), 2),
-      setScheduleWarnings: scopedLegacyObject(loadJson('jonathansSetScheduleWarnings', {}), 1)
+      setScheduleWarnings: scopedLegacyObject(loadJson('jonathansSetScheduleWarnings', {}), 1),
+      dayTypes: scopedLegacyObject(loadJson('jonathansDayTypes', {}), 1),
+      managerNotes: scopedLegacyObject(loadJson('jonathansManagerNotes', {}), 1),
+      publishedPeriods: loadJson('jonathansPublishedPeriods', {})
     };
 
-    const boardNames = ['Manager', 'Bar', 'Host/Foodrunner', 'Server/Cocktail'];
+    state.employees.forEach(person => {
+      person.setSchedules = (person.setSchedules || []).map(rule => ({ ...rule, board: normalizeBoardName(rule.board, rule.code || '') }));
+    });
+
+    const boardNames = ['Manager', 'Bar', 'Host/Foodrunner', 'Server', 'Cocktail'];
     const byId = id => document.getElementById(id);
     const save = () => {
       localStorage.setItem('jonathansPeriods', JSON.stringify(state.periods));
@@ -1331,6 +1502,9 @@
       localStorage.setItem('jonathansHiddenSlots', JSON.stringify(state.hiddenSlots));
       localStorage.setItem('jonathansRequestsOff', JSON.stringify(state.requestsOff));
       localStorage.setItem('jonathansSetScheduleWarnings', JSON.stringify(state.setScheduleWarnings));
+      localStorage.setItem('jonathansDayTypes', JSON.stringify(state.dayTypes));
+      localStorage.setItem('jonathansManagerNotes', JSON.stringify(state.managerNotes));
+      localStorage.setItem('jonathansPublishedPeriods', JSON.stringify(state.publishedPeriods));
     };
 
     function slotId(board, dayId, code) {
@@ -1384,23 +1558,25 @@
     function getSlots(board, day) {
       const base = templates[board] || [];
       let slots;
-      if (board !== 'Server/Cocktail') {
+      if (board !== 'Server' && board !== 'Cocktail') {
         slots = base.map(slot => ({ code: slot[0], label: slot[1], role: slot[2], min: slot[3], note: slot[4], custom: false }));
       } else {
         const dayCodes = serverByDay[day.label] || serverByDay.Mon;
-        slots = dayCodes.map(code => {
-        const isCocktail = code.includes('CKT');
-        const isClose = code.includes('CL');
-        const isParty = /\(6\)|\(7\)|\(8\)/.test(code);
-        return {
-          code,
-          label: code,
-          role: isCocktail ? 'Cocktail' : 'Server',
-          min: isClose ? 5 : isParty || isCocktail ? 4 : 3,
-          note: isClose ? 'Closer needs a strong person' : isParty ? 'Party/heavier section, rotate fairly' : 'Dining room section',
-          custom: false
-        };
-      });
+        slots = dayCodes
+          .filter(code => board === 'Cocktail' ? code.includes('CKT') : !code.includes('CKT'))
+          .map(code => {
+            const isCocktail = code.includes('CKT');
+            const isClose = code.includes('CL');
+            const isParty = /\(6\)|\(7\)|\(8\)/.test(code);
+            return {
+              code,
+              label: code,
+              role: isCocktail ? 'Cocktail' : 'Server',
+              min: isClose ? 5 : isParty || isCocktail ? 4 : 3,
+              note: isClose ? `${isCocktail ? 'Cocktail close' : 'Closer'} needs a strong person` : isParty ? 'Party/heavier section, rotate fairly' : isCocktail ? 'Cocktail coverage' : 'Dining room section',
+              custom: false
+            };
+          });
       }
 
       const custom = state.customSlots[`${state.periodId}|${day.id}|${board}`] || [];
@@ -1451,6 +1627,18 @@
       return state.periods.find(period => period.id === state.periodId) || state.periods[0];
     }
 
+    function dayScopedKey(dayId = state.dayId) {
+      return `${state.periodId}|${dayId}`;
+    }
+
+    function currentDayType(dayId = state.dayId) {
+      return state.dayTypes[dayScopedKey(dayId)] || 'Normal';
+    }
+
+    function currentDayNote(dayId = state.dayId) {
+      return state.managerNotes[dayScopedKey(dayId)] || '';
+    }
+
     function refreshDaysForPeriod() {
       days = buildDays(currentPeriod());
       if (!days.some(day => day.id === state.dayId)) state.dayId = days[0].id;
@@ -1461,7 +1649,8 @@
       byId('periodSelect').innerHTML = state.periods.map(item => `<option value="${item.id}" ${item.id === state.periodId ? 'selected' : ''}>${item.label}</option>`).join('');
       byId('newPeriodStart').value = state.newPeriodDraftStart || period.startDate;
       byId('newPeriodLength').value = String(state.newPeriodDraftLength || period.length);
-      byId('periodSummary').textContent = `${period.label} (${period.length === 7 ? '1 week' : '2 weeks'}). Assign once per day across Manager, Bar, Host/Foodrunner, and Server/Cocktail.`;
+      const published = state.publishedPeriods[state.periodId] ? ' Published.' : '';
+      byId('periodSummary').textContent = `${period.label} (${period.length === 7 ? '1 week' : '2 weeks'}). Manager, Bar, Host/Foodrunner, Server, and Cocktail.${published}`;
     }
 
     function renderRoleFilters() {
@@ -1474,6 +1663,7 @@
       byId('setDay').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `<option value="${day}">${day}</option>`).join('');
       byId('setBoard').innerHTML = boardNames.map(board => `<option value="${board}">${board}</option>`).join('');
       byId('setRole').innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+      byId('dayTypeSelect').innerHTML = dayTypes.map(type => `<option value="${type}" ${currentDayType() === type ? 'selected' : ''}>${type}</option>`).join('');
     }
 
     function renderEmployees() {
@@ -1564,6 +1754,73 @@
       }).join('');
     }
 
+    function allOpenShifts() {
+      const rows = [];
+      for (const day of days) {
+        for (const board of boardNames) {
+          for (const slot of getSlots(board, day)) {
+            const key = slotId(board, day.id, slot.code);
+            if (!state.assignments[key]) rows.push({ day, board, slot, key });
+          }
+        }
+      }
+      return rows;
+    }
+
+    function renderOpenShifts() {
+      byId('openShiftsPanel').hidden = !state.showOpenShifts;
+      if (!state.showOpenShifts) return;
+      const rows = allOpenShifts();
+      byId('openShiftsList').innerHTML = rows.length ? rows.map(item => `
+        <div class="open-shift-row">
+          <span class="check-dot"></span>
+          <div><strong>${item.day.label} ${item.day.date}</strong> ${item.board} ${item.slot.code} <span class="empty">${item.slot.role} ${item.slot.min}/5</span></div>
+          <button type="button" data-jump-slot="${item.key}">Go</button>
+        </div>
+      `).join('') : '<p class="empty">No open shifts for this period.</p>';
+    }
+
+    function publishChecks() {
+      const checks = [];
+      const open = allOpenShifts();
+      if (open.length) checks.push({ level: 'warn', text: `${open.length} open shift(s) still need people.` });
+      else checks.push({ level: 'pass', text: 'All visible shifts are filled.' });
+
+      for (const day of days) {
+        const seen = new Map();
+        for (const board of boardNames) {
+          for (const slot of getSlots(board, day)) {
+            const key = slotId(board, day.id, slot.code);
+            const employee = state.employees.find(person => person.id === state.assignments[key]);
+            if (!employee) continue;
+            if (seen.has(employee.id)) checks.push({ level: 'warn', text: `${employee.name} is double-booked on ${day.label} ${day.date}.` });
+            seen.set(employee.id, true);
+            if (isRequestedOff(employee.id, day.id)) checks.push({ level: 'warn', text: `${employee.name} is scheduled on ${day.label} ${day.date} but requested off.` });
+            if (!canWorkRole(employee, slot.role)) checks.push({ level: 'warn', text: `${employee.name} is assigned to ${slot.role} but that role bubble is off.` });
+            if (roleFit(employee, slot.role) < slot.min) checks.push({ level: 'warn', text: `${employee.name} is below ${slot.role} minimum for ${day.label} ${slot.code}.` });
+          }
+        }
+      }
+
+      const setWarnings = state.setScheduleWarnings[periodWarningKey()] || [];
+      setWarnings.forEach(text => checks.push({ level: 'warn', text }));
+      if (!checks.some(check => check.level === 'warn')) checks.push({ level: 'pass', text: 'No publish blockers found.' });
+      return checks;
+    }
+
+    function renderPublishPanel() {
+      byId('publishPanel').hidden = !state.showPublishCheck;
+      if (!state.showPublishCheck) return;
+      const checks = publishChecks();
+      byId('publishList').innerHTML = checks.map(check => `
+        <div class="check-row ${check.level}">
+          <span class="check-dot"></span>
+          <div>${check.text}</div>
+          ${check.level === 'pass' ? '<strong>OK</strong>' : '<strong>Check</strong>'}
+        </div>
+      `).join('') + `<button class="btn primary" id="markPublishedBtn" type="button">Mark Period Published</button>`;
+    }
+
     function renderSlot(board, slot) {
       const key = slotId(board, state.dayId, slot.code);
       const employee = state.employees.find(person => person.id === state.assignments[key]);
@@ -1611,6 +1868,11 @@
           <div class="detail-card">
             <h3>Select a slot</h3>
             <p class="empty">Click an empty slot, then choose an available person from the picker. If someone is already used anywhere on this day, they stay visible but cannot be clicked.</p>
+            <div class="detail-line"><span>Day type</span><strong>${currentDayType()}</strong></div>
+          </div>
+          <div class="detail-card">
+            <h3>Manager Notes</h3>
+            <textarea class="notes-box" id="managerNotes" placeholder="Big party, school-out staffing, slow day, reminders...">${escapeHtml(currentDayNote())}</textarea>
           </div>
           <div class="warning">${locks.length ? `${locks.length} people are already locked for this day.` : 'No one is locked on this day yet.'} ${requestCount ? `${requestCount} request-off marker(s) for this day.` : ''}</div>
           ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
@@ -1628,9 +1890,14 @@
           <div class="detail-line"><span>Minimum score</span><strong>${selected.min}/5</strong></div>
           <div class="detail-line"><span>Current person</span><strong>${assigned ? assigned.name : 'Open'}</strong></div>
           <div class="detail-line"><span>Source</span><strong>${source}</strong></div>
+          <div class="detail-line"><span>Day type</span><strong>${currentDayType()}</strong></div>
           <div class="detail-line"><span>Rule note</span><strong>${selected.note}</strong></div>
         </div>
-        <div class="warning">Priority order: Manager, Bar, Host/Foodrunner, then Server/Cocktail. Server slots should use whoever remains available after the earlier boards are covered. Requested-off people show with * and are disabled unless we add an override button later.</div>
+        <div class="detail-card">
+          <h3>Manager Notes</h3>
+          <textarea class="notes-box" id="managerNotes" placeholder="Big party, school-out staffing, slow day, reminders...">${escapeHtml(currentDayNote())}</textarea>
+        </div>
+        <div class="warning">Priority order: Manager, Bar, Host/Foodrunner, Server, then Cocktail. Requested-off people show with * and are disabled unless we add an override button later.</div>
         ${scheduledRequestOff.length ? `<div class="warning">${scheduledRequestOff.map(item => `${item.employee.name} is scheduled at ${item.board} ${item.code} but requested off.`).join('<br>')}</div>` : ''}
         ${setWarnings.length ? `<div class="warning">${setWarnings.join('<br>')}</div>` : ''}
       `;
@@ -1674,7 +1941,8 @@
       if (board === 'Manager') return { role: 'Manager', min: 5, note: 'Extra manager coverage' };
       if (board === 'Bar') return { role: 'Bar', min: 4, note: 'Extra bar coverage' };
       if (board === 'Host/Foodrunner') return { role: 'Host', min: 3, note: 'Extra host/foodrunner coverage' };
-      return { role: 'Server', min: 3, note: 'Extra server/cocktail coverage' };
+      if (board === 'Cocktail') return { role: 'Cocktail', min: 4, note: 'Extra cocktail coverage' };
+      return { role: 'Server', min: 3, note: 'Extra server coverage' };
     }
 
     function openSlotModal(board) {
@@ -1702,9 +1970,9 @@
         <div class="role-card ${roleSetting(person, role).enabled ? 'enabled' : ''}" data-role-card="${role}">
           <div class="role-card-head">
             <button class="role-bubble ${roleSetting(person, role).enabled ? 'enabled' : ''}" type="button" data-toggle-role="${role}">
-              ${roleSetting(person, role).enabled ? '✓ ' : ''}${role}
+              ${roleSetting(person, role).enabled ? 'On ' : ''}${role}
             </button>
-            <span>${roleSetting(person, role).enabled ? `${roleSetting(person, role).useType} · ${roleSetting(person, role).skill}/5` : 'Off'}</span>
+            <span>${roleSetting(person, role).enabled ? `${roleSetting(person, role).useType} / ${roleSetting(person, role).skill}/5` : 'Off'}</span>
           </div>
           <div class="role-controls" ${roleSetting(person, role).enabled ? '' : 'hidden'}>
             <select data-use-role="${role}">
@@ -1717,7 +1985,7 @@
         </div>
       `).join('');
       byId('setDay').value = 'Mon';
-      byId('setBoard').value = person.mainRole === 'Bar' ? 'Bar' : person.mainRole === 'Manager' ? 'Manager' : person.mainRole === 'Host' || person.mainRole === 'Foodrunner' ? 'Host/Foodrunner' : 'Server/Cocktail';
+      byId('setBoard').value = person.mainRole === 'Bar' ? 'Bar' : person.mainRole === 'Manager' ? 'Manager' : person.mainRole === 'Host' || person.mainRole === 'Foodrunner' ? 'Host/Foodrunner' : person.mainRole === 'Cocktail' ? 'Cocktail' : 'Server';
       byId('setRole').value = person.mainRole;
       byId('setCode').value = '';
       renderSetScheduleList(person);
@@ -1731,7 +1999,7 @@
         <div class="set-schedule-row ${rule.active ? '' : 'inactive'}" data-set-rule="${rule.id}">
           <div>
             <strong>${rule.day} ${rule.board} ${rule.code}</strong>
-            <span>${rule.role} · ${rule.active ? 'Active' : 'Inactive'}</span>
+            <span>${rule.role} / ${rule.active ? 'Active' : 'Inactive'}</span>
           </div>
           <button class="btn" type="button" data-toggle-set-rule="${rule.id}">${rule.active ? 'Pause' : 'Use'}</button>
           <button class="btn" type="button" data-remove-set-rule="${rule.id}">Remove</button>
@@ -1845,6 +2113,48 @@
       render();
     }
 
+    function addPresetSlot(board, code, role, min, note) {
+      const day = days.find(item => item.id === state.dayId);
+      const key = `${state.periodId}|${state.dayId}|${board}`;
+      const cleanCode = code.trim().toUpperCase();
+      const hidden = new Set(state.hiddenSlots[key] || []);
+      if (hidden.has(cleanCode)) {
+        state.hiddenSlots[key] = (state.hiddenSlots[key] || []).filter(item => item !== cleanCode);
+        if (!state.hiddenSlots[key].length) delete state.hiddenSlots[key];
+        return;
+      }
+      if (getSlots(board, day).some(slot => slot.code.toUpperCase() === cleanCode)) return;
+      state.customSlots[key] = state.customSlots[key] || [];
+      state.customSlots[key].push({ code: cleanCode, label: cleanCode, role, min, note });
+    }
+
+    function applyDayType(type) {
+      state.dayTypes[dayScopedKey()] = type;
+      if (type === 'Normal') {
+        render();
+        return;
+      }
+      if (type === 'Slow') {
+        const day = days.find(item => item.id === state.dayId);
+        for (const board of ['Manager', 'Bar']) {
+          const key = `${state.periodId}|${state.dayId}|${board}`;
+          const removable = board === 'Manager' ? ['MID'] : ['MID', '2RUSH'];
+          const visible = getSlots(board, day).filter(slot => removable.includes(slot.code) && !state.assignments[slotId(board, state.dayId, slot.code)]);
+          if (visible.length) state.hiddenSlots[key] = Array.from(new Set([...(state.hiddenSlots[key] || []), ...visible.map(slot => slot.code)]));
+        }
+      }
+      if (type === 'Busy' || type === 'School Out' || type === 'Holiday/Event') {
+        addPresetSlot('Server', 'EXTRA 10AM', 'Server', 3, `${type} preset coverage`);
+        addPresetSlot('Server', 'EXTRA 4PM', 'Server', 3, `${type} preset coverage`);
+        addPresetSlot('Host/Foodrunner', 'EXTRA HST', 'Host', 3, `${type} preset host coverage`);
+      }
+      if (type === 'School Out' || type === 'Holiday/Event') {
+        addPresetSlot('Cocktail', 'EXTRA CKT', 'Cocktail', 4, `${type} preset cocktail coverage`);
+        addPresetSlot('Host/Foodrunner', 'EXTRA FDR', 'Foodrunner', 3, `${type} preset runner coverage`);
+      }
+      render();
+    }
+
     function deleteCustomSlot(key) {
       const [periodId, dayId, board, code] = key.split('|');
       if (state.assignments[key]) {
@@ -1917,6 +2227,8 @@
       renderDayControls();
       renderRoleFilters();
       renderBoards();
+      renderOpenShifts();
+      renderPublishPanel();
       renderEmployees();
       renderDetails();
       renderStats();
@@ -1982,12 +2294,99 @@
       render();
     }
 
+    function replacePeriodIdInKey(key, fromPeriodId, toPeriodId) {
+      return key.startsWith(`${fromPeriodId}|`) ? `${toPeriodId}|${key.slice(fromPeriodId.length + 1)}` : key;
+    }
+
+    function copyPeriod(copyAssignments) {
+      const source = currentPeriod();
+      const startDate = byId('newPeriodStart').value;
+      const length = Number(byId('newPeriodLength').value);
+      if (!startDate) {
+        alert('Pick a start date for the copied schedule period.');
+        return;
+      }
+      const target = buildPeriod(startDate, length);
+      if (target.id === source.id) {
+        alert('Pick a different start date before copying this period.');
+        return;
+      }
+      if (!state.periods.some(item => item.id === target.id)) state.periods.push(target);
+
+      const copyScoped = (bucket, include) => {
+        for (const [key, value] of Object.entries(bucket)) {
+          if (!key.startsWith(`${source.id}|`) || !include(key, value)) continue;
+          bucket[replacePeriodIdInKey(key, source.id, target.id)] = structuredClone(value);
+        }
+      };
+
+      copyScoped(state.customSlots, () => true);
+      copyScoped(state.hiddenSlots, () => true);
+      copyScoped(state.dayTypes, () => true);
+      copyScoped(state.managerNotes, () => true);
+      if (copyAssignments) {
+        copyScoped(state.assignments, (key, value) => Boolean(value));
+        copyScoped(state.assignmentMeta, (key) => Boolean(state.assignments[key]));
+      }
+
+      state.periodId = target.id;
+      state.dayId = buildDays(target)[0].id;
+      state.selectedSlot = null;
+      state.newPeriodDraftStart = target.startDate;
+      state.newPeriodDraftLength = target.length;
+      applySetSchedulesToPeriod(target.id);
+      render();
+    }
+
     function shiftDraftMonth(delta) {
       const current = byId('newPeriodStart').value || state.newPeriodDraftStart || currentPeriod().startDate;
       const date = parseLocalDate(current);
       date.setMonth(date.getMonth() + delta);
       state.newPeriodDraftStart = toDateId(date);
       byId('newPeriodStart').value = state.newPeriodDraftStart;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function exportWorkbook() {
+      const sheets = {
+        Manager: ['Manager'],
+        Bar: ['Bar'],
+        'Host-Foodrunner': ['Host/Foodrunner'],
+        'Server-Cocktail': ['Server', 'Cocktail']
+      };
+      const cell = value => `<Cell><Data ss:Type="String">${escapeHtml(value)}</Data></Cell>`;
+      const row = values => `<Row>${values.map(cell).join('')}</Row>`;
+      const sheetXml = Object.entries(sheets).map(([name, boards]) => `
+        <Worksheet ss:Name="${escapeHtml(name)}">
+          <Table>
+            ${row(['Day', 'Date', 'Board', 'Shift', 'Role', 'Person', 'Notes'])}
+            ${days.map(day => boards.map(board => getSlots(board, day).map(slot => {
+              const person = state.employees.find(emp => emp.id === state.assignments[slotId(board, day.id, slot.code)]);
+              return row([day.label, day.date, board, slot.code, slot.role, person?.name || '', slot.note]);
+            }).join('')).join('')).join('')}
+          </Table>
+        </Worksheet>
+      `).join('');
+      const workbook = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Top"/></Style>
+  </Styles>
+  ${sheetXml}
+</Workbook>`;
+      const blob = new Blob([workbook], { type: 'application/vnd.ms-excel' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `jonathans-schedule-${currentPeriod().startDate}.xls`;
+      link.click();
+      URL.revokeObjectURL(link.href);
     }
 
     document.addEventListener('click', event => {
@@ -2035,6 +2434,23 @@
         return;
       }
 
+      const jumpSlotButton = event.target.closest('[data-jump-slot]');
+      if (jumpSlotButton) {
+        const [, dayId] = jumpSlotButton.dataset.jumpSlot.split('|');
+        state.dayId = dayId;
+        state.selectedSlot = jumpSlotButton.dataset.jumpSlot;
+        state.showOpenShifts = false;
+        render();
+        return;
+      }
+
+      const markPublishedButton = event.target.closest('#markPublishedBtn');
+      if (markPublishedButton) {
+        state.publishedPeriods[state.periodId] = new Date().toISOString();
+        render();
+        return;
+      }
+
       const toggleRoleButton = event.target.closest('[data-toggle-role]');
       if (toggleRoleButton) {
         const role = toggleRoleButton.dataset.toggleRole;
@@ -2043,13 +2459,13 @@
         const isEnabled = !card?.classList.contains('enabled');
         card?.classList.toggle('enabled', isEnabled);
         toggleRoleButton.classList.toggle('enabled', isEnabled);
-        toggleRoleButton.textContent = `${isEnabled ? '✓ ' : ''}${role}`;
+        toggleRoleButton.textContent = `${isEnabled ? 'On ' : ''}${role}`;
         if (controls) controls.hidden = !isEnabled;
         const summary = card?.querySelector('.role-card-head span');
         if (summary) {
           const useType = card?.querySelector(`[data-use-role="${role}"]`)?.value || 'Training';
           const skill = card?.querySelector(`[data-skill-role="${role}"]`)?.value || '1';
-          summary.textContent = isEnabled ? `${useType} · ${skill}/5` : 'Off';
+          summary.textContent = isEnabled ? `${useType} / ${skill}/5` : 'Off';
         }
         return;
       }
@@ -2114,6 +2530,33 @@
       createPeriod(byId('newPeriodStart').value, byId('newPeriodLength').value);
     });
 
+    byId('copySetupBtn').addEventListener('click', () => copyPeriod(false));
+    byId('copyFullBtn').addEventListener('click', () => copyPeriod(true));
+
+    byId('dayTypeSelect').addEventListener('change', event => applyDayType(event.target.value));
+
+    byId('openShiftsBtn').addEventListener('click', () => {
+      state.showOpenShifts = true;
+      state.showPublishCheck = false;
+      render();
+    });
+
+    byId('publishCheckBtn').addEventListener('click', () => {
+      state.showPublishCheck = true;
+      state.showOpenShifts = false;
+      render();
+    });
+
+    byId('closeOpenShiftsBtn').addEventListener('click', () => {
+      state.showOpenShifts = false;
+      render();
+    });
+
+    byId('closePublishBtn').addEventListener('click', () => {
+      state.showPublishCheck = false;
+      render();
+    });
+
     byId('search').addEventListener('input', event => {
       state.search = event.target.value;
       renderEmployees();
@@ -2129,6 +2572,14 @@
       state.sidebarMode = 'requests';
       state.selectedSlot = null;
       render();
+    });
+
+    byId('slotDetails').addEventListener('input', event => {
+      if (event.target.id !== 'managerNotes') return;
+      const value = event.target.value;
+      if (value.trim()) state.managerNotes[dayScopedKey()] = value;
+      else delete state.managerNotes[dayScopedKey()];
+      save();
     });
 
     byId('addPersonForm').addEventListener('submit', event => {
@@ -2175,7 +2626,7 @@
       if (!summary || !card?.classList.contains('enabled')) return;
       const useType = card.querySelector(`[data-use-role="${role}"]`)?.value || 'Training';
       const skill = card.querySelector(`[data-skill-role="${role}"]`)?.value || '1';
-      summary.textContent = `${useType} · ${skill}/5`;
+      summary.textContent = `${useType} / ${skill}/5`;
     });
 
     byId('closeSlotModal').addEventListener('click', closeSlotModal);
@@ -2186,6 +2637,7 @@
 
     byId('clearDayBtn').addEventListener('click', clearCurrentDay);
     byId('autoFillBtn').addEventListener('click', autofill);
+    byId('exportExcelBtn').addEventListener('click', exportWorkbook);
     byId('printBtn').addEventListener('click', () => window.print());
     byId('copyLinkBtn').addEventListener('click', async () => {
       const data = btoa(unescape(encodeURIComponent(JSON.stringify(state.assignments))));
